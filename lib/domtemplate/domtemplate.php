@@ -20,59 +20,11 @@
 		next ()				append the sub-template to the list and reset its content
 */
 
-/* class DOMTemplate : the overall template controller
-   ====================================================================================================================== */
-class DOMTemplate extends DOMTemplateNode {
-	private $DOMDocument;			//internal reference to the PHP DOMDocument for the template's XML
-	
-	//what type of data are we processing?
-	protected $type = self::HTML;
-	const HTML = 0;
-	const XML  = 1;
-	
-	/* new DOMTemplate : instantiation
-	   -------------------------------------------------------------------------------------------------------------- */
-	public function __construct (
-		$source,			//a string of the HTML or XML to form the template
-		$namespaces=array ()		//an array of XML namespaces if your document uses them,
-						//in the format of `'namespace' => 'namespace URI'`
-	) {
-		//detect the content type; HTML or XML. HTML will need filtering during input and output
-		//does this source have an XML prolog?
-		$this->type = substr_compare ($source, '<?xml', 0, 4, true) === 0 ? self::XML : self::HTML;
-		
-		//load the template file to work with,
-		//it _must_ have only one root (wrapping) element; e.g. `<html>`
-		$this->DOMDocument = new DOMDocument ();
-		if (!$this->DOMDocument->loadXML (
-			//if the source is HTML add an XML prolog to avoid mangling unicode characters,
-			//see <php.net/manual/en/domdocument.loadxml.php#94291>. also convert it to XML for PHP DOM use
-			$this->type == self::HTML
-			? "<?xml version=\"1.0\" encoding=\"utf-8\"?>".self::toXML ($source)
-			: $source,
-			@LIBXML_COMPACT || @LIBXML_NONET
-		)) trigger_error (
-			"Source is invalid XML", E_USER_ERROR
-		);
-		//set the root node for all XPath searching
-		//(handled all internally by `DOMTemplateNode`)
-		parent::__construct ($this->DOMDocument->documentElement, $namespaces);
-	}
-	
-	/* output the source code (cast the object to a string, i.e. `echo $template;`)
-	   -------------------------------------------------------------------------------------------------------------- */
-	public function __toString () {
-		//if the input was HTML, remove the XML prolog on output
-		return $this->type == self::HTML
-		?	//we defer to DOMTemplateNode which returns the HTML for any node,
-			//the top-level template only needs to consider the prolog
-			preg_replace ('/^<\?xml[^<]*>\n/', '', parent::__toString ())
-		:	parent::__toString ();
-	}
-}
-
 /* class DOMTemplateNode
    ====================================================================================================================== */
+//NOTE: this abstract class *must* be declared before `DOMTemplate` / `DOMTemplateRepeater`; since PHP8 a child class
+//      whose `__toString` calls `parent::__toString` is no longer early-bound at compile-time, so the declaration order
+//      now matters and the parent has to come first (otherwise: “Class DOMTemplateNode not found”)
 //these functions are shared between the base `DOMTemplate` and the repeater `DOMTemplateRepeater`.
 //see <php.net/manual/en/language.oop5.abstract.php#95404> for a good description of 'abstract',
 //refer to the constructor function for reasons why!
@@ -217,14 +169,14 @@ abstract class DOMTemplateNode {
 		?	($use_relative ? './/' : '').		//apply the relative prefix
 			(@$m[1] ? @$m[1].@$m[2] : '*').		//the element name, if specified, otherwise "*"
 			(@$m[4] ? ($m[3] == '#'			//is this an ID?
-				? "[@id=\"${m[4]}\"]"		//- yes, match it
+				? "[@id=\"{$m[4]}\"]"		//- yes, match it
 				//- no, a class. note that class attributes can contain multiple classes, separated by
 				//  spaces, so we have to test for the whole-word, and not a partial-match
-				: "[contains(concat(' ', @class, ' '),\" ${m[4]} \")]"
+				: "[contains(concat(' ', @class, ' '),\" {$m[4]} \")]"
 			) : '').
 			(@$m[5] ? (@$m[6]			//optional attribute of the parent element
-				? "[${m[5]}]"			//- an attribute test
-				: "/${m[5]}"			//- or select the attribute
+				? "[{$m[5]}]"			//- an attribute test
+				: "/{$m[5]}"			//- or select the attribute
 			) : '').
 			(@$m[7] ? '/'.self::shorthand2xpath ($m[7], false) : '')
 		: $query;
@@ -255,7 +207,7 @@ abstract class DOMTemplateNode {
 		$query			//an XPath/shorthand (see `shorthand2xpath`) string to search for nodes
 	) {
 		//convert each query to real XPath: (multiple targets are available by comma separating queries)
-		$xpath = implode ('|', array_map (array ('self', 'shorthand2xpath'), explode (', ', $query)));
+		$xpath = implode ('|', array_map (array (__CLASS__, 'shorthand2xpath'), explode (', ', $query)));
 		
 		//run the real XPath query and return the DOMNodeList result
 		If ($result = @$this->DOMXPath->query ($xpath, $this->DOMNode)) {
@@ -423,6 +375,57 @@ abstract class DOMTemplateNode {
 		//NOTE: the provided XPath query could return more than one element! DOMTemplateRepeaterArray therefore
 		//	acts as a simple wrapper to propogate changes to all the matched nodes (DOMTemplateRepeater)
 		return new DOMTemplateRepeaterArray ($this->query ($query), $this->namespaces);
+	}
+}
+
+/* class DOMTemplate : the overall template controller
+   ====================================================================================================================== */
+class DOMTemplate extends DOMTemplateNode {
+	private $DOMDocument;			//internal reference to the PHP DOMDocument for the template's XML
+	
+	//what type of data are we processing?
+	protected $type = self::HTML;
+	const HTML = 0;
+	const XML  = 1;
+	
+	/* new DOMTemplate : instantiation
+	   -------------------------------------------------------------------------------------------------------------- */
+	public function __construct (
+		$source,			//a string of the HTML or XML to form the template
+		$namespaces=array ()		//an array of XML namespaces if your document uses them,
+						//in the format of `'namespace' => 'namespace URI'`
+	) {
+		//detect the content type; HTML or XML. HTML will need filtering during input and output
+		//does this source have an XML prolog?
+		$this->type = substr_compare ($source, '<?xml', 0, 4, true) === 0 ? self::XML : self::HTML;
+		
+		//load the template file to work with,
+		//it _must_ have only one root (wrapping) element; e.g. `<html>`
+		$this->DOMDocument = new DOMDocument ();
+		if (!$this->DOMDocument->loadXML (
+			//if the source is HTML add an XML prolog to avoid mangling unicode characters,
+			//see <php.net/manual/en/domdocument.loadxml.php#94291>. also convert it to XML for PHP DOM use
+			$this->type == self::HTML
+			? "<?xml version=\"1.0\" encoding=\"utf-8\"?>".self::toXML ($source)
+			: $source,
+			@LIBXML_COMPACT || @LIBXML_NONET
+		)) trigger_error (
+			"Source is invalid XML", E_USER_ERROR
+		);
+		//set the root node for all XPath searching
+		//(handled all internally by `DOMTemplateNode`)
+		parent::__construct ($this->DOMDocument->documentElement, $namespaces);
+	}
+	
+	/* output the source code (cast the object to a string, i.e. `echo $template;`)
+	   -------------------------------------------------------------------------------------------------------------- */
+	public function __toString () {
+		//if the input was HTML, remove the XML prolog on output
+		return $this->type == self::HTML
+		?	//we defer to DOMTemplateNode which returns the HTML for any node,
+			//the top-level template only needs to consider the prolog
+			preg_replace ('/^<\?xml[^<]*>\n/', '', parent::__toString ())
+		:	parent::__toString ();
 	}
 }
 

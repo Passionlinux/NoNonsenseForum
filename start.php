@@ -136,9 +136,9 @@ if (!HTACCESS && FORUM_USERS == 'users') require FORUM_LIB.'error_htaccess.php';
 /* common input
    ---------------------------------------------------------------------------------------------------------------------- */
 //most pages allow for a page number; note that this is merely the user-input, it is not necessarily a valid page number!
-define ('PAGE',     preg_match ('/^[1-9][0-9]*$/', @$_GET['page']) ? (int) $_GET['page'] : false);
+define ('PAGE',     preg_match ('/^[1-9][0-9]*$/', @$_GET['page'] ?? '') ? (int) $_GET['page'] : false);
 //all our pages use 'path' (often optional) to specify the sub-forum being viewed, so this is done here
-define ('PATH',     preg_match ('/^(?:[^\.\/&]+\/)+$/', @$_GET['path']) ? $_GET['path'] : '');
+define ('PATH',     preg_match ('/^(?:[^\.\/&]+\/)+$/', @$_GET['path'] ?? '') ? $_GET['path'] : '');
 //a shorthand for when PATH is used in URL construction for HTML use
 define ('PATH_URL', safeURL (PATH));
 //for serverside use, like `chdir` / `unlink` (must replace the URL forward-slashes with backslashes on Windows)
@@ -149,7 +149,9 @@ define ('SUBFORUM', @end (explode ('/', trim (PATH, '/'))));
 
 //deny access to some folders
 //TODO: this should generate a 403, but we don't have a 403 page designed yet
-foreach (array ('users/', 'lib/', 'themes/', 'cgi-bin/') as $_) if (stripos ($_, PATH) === 0) die ();
+//NOTE: the `PATH !== ''` guard is required on PHP8, where `stripos ($haystack, '')` returns `0` (PHP<8 returned false),
+//      which would `die` silently on every page in the root forum
+foreach (array ('users/', 'lib/', 'themes/', 'cgi-bin/') as $_) if (PATH !== '' && stripos ($_, PATH) === 0) die ();
 
 //we have to change directory for `is_dir` to work, see <uk3.php.net/manual/en/function.is-dir.php#70005>
 //being in the right directory is also assumed for reading 'mods.txt' and when generating the RSS (`indexRSS`)
@@ -174,8 +176,9 @@ if (@$_SERVER['HTTP_AUTHORIZATION']) list ($_SERVER['PHP_AUTH_USER'], $_SERVER['
 
 //all pages can accept a name / password when committing actions (new thread / reply &c.)
 //in the case of HTTP authentication (sign in), these are provided in the request header instead
-define ('NAME', mb_substr (@$_SERVER['PHP_AUTH_USER'] ? @$_SERVER['PHP_AUTH_USER'] : @$_POST['username'], 0, SIZE_NAME));
-define ('PASS', mb_substr (@$_SERVER['PHP_AUTH_PW']   ? @$_SERVER['PHP_AUTH_PW']   : @$_POST['password'], 0, SIZE_PASS));
+//(the `?? ''` fallbacks are required on PHP8, where passing `null` to `mb_substr` is deprecated)
+define ('NAME', mb_substr (@$_SERVER['PHP_AUTH_USER'] ? @$_SERVER['PHP_AUTH_USER'] : (@$_POST['username'] ?? ''), 0, SIZE_NAME));
+define ('PASS', mb_substr (@$_SERVER['PHP_AUTH_PW']   ? @$_SERVER['PHP_AUTH_PW']   : (@$_POST['password'] ?? ''), 0, SIZE_PASS));
 
 if ((   //if HTTP authentication is used, we don’t need to validate the form fields
         @$_SERVER['PHP_AUTH_USER'] && @$_SERVER['PHP_AUTH_PW']
@@ -276,9 +279,10 @@ define ('LANG',
                 ? @$_COOKIE['lang']
                 : (
                         //otherwise, try detect the language sent by the browser:
+                        //(`?? ''`: the header may be absent; PHP8 deprecates passing `null` to `explode`)
                         $lang = @array_shift (array_intersect (
                                 //- find language codes in the HTTP header and compare with the theme provided languages
-                                preg_replace ('/^([a-z0-9-]+).*/i', '$1', explode (',', $_SERVER['HTTP_ACCEPT_LANGUAGE'])),
+                                preg_replace ('/^([a-z0-9-]+).*/i', '$1', explode (',', $_SERVER['HTTP_ACCEPT_LANGUAGE'] ?? '')),
                                 explode (' ', THEME_LANGS)
                         ))
                         ? $lang

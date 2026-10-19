@@ -41,20 +41,26 @@ header ('Content-Type: text/html; charset=UTF-8');
    `$_COOKIES`, `$_REQUEST` / `$_GET` / `$_POST` &c.) through our UTF-8 sanitisation. you'll still need to be wary of the
    contents of your inputs (SQL/HTML injection, XSS &c.), and always safely combine strings (`safeURL`) and output safely
    (`safeHTML`), but this process helps against the less-obvious Unicode-based attacks */
+//callback used by `preprocess_superglobals` below to strip "magic quotes" slashes from a value
+//(a named function is used rather than a closure so that this library still parses on PHP5.2)
+function safeStripslashes (&$value, $key=NULL) {
+        if (is_string ($value)) $value = stripslashes ($value);
+}
+
 function preprocess_superglobals () {
         /* "magic quotes" was a rather weak attempt at preventing injection attacks by automatically escaping the inputs
            (`$_GET`, `$_POST` & `$_COOKIE`) with slashes (i.e. "won\'t"). this is however only relevant for SQL and not
            HTML so introduces more complications in processing and outputting. this feature is removed entirely in PHP5.4.
            if magic quotes is on, we strip the extra slashes from the inputs so as to normalise behaviour across different
            servers and PHP versions */
-        if (get_magic_quotes_gpc ()) {
+        //"magic quotes" was deprecated in PHP5.3, removed in PHP5.4, and even the `get_magic_quotes_gpc`
+        //function has been removed in PHP8, so we have to guard the call for compatibility
+        if (function_exists ('get_magic_quotes_gpc') && get_magic_quotes_gpc ()) {
                 //great care has to be taken to pass and process the superglobals by reference
                 $gpc = array (&$_GET, &$_POST, &$_COOKIE, &$_ENV);
                 //drill through the selected superglobals, applying `stripslashes`
-                foreach ($gpc as &$_) array_walk_recursive ($_, create_function (
-                        '&$value, $key',
-                        'if (is_string ($value)) $value = stripslashes ($value);'
-                ));
+                //(`create_function` was removed in PHP8, so a named callback is used instead)
+                foreach ($gpc as &$_) array_walk_recursive ($_, 'safeStripslashes');
         }
         //magic quotes only applies to GET, POST, COOKIE & ENV, but we'll need to run the other sanitising functions
         //on all the superglobals
@@ -85,6 +91,9 @@ function safeUTF8 (
         //when `mb_convert_encoding` is used below, we want it to use the recommended Unicode replacement character
         //rather than just "?" <stackoverflow.com/a/13695364>
         mb_substitute_character(0xFFFD);
+        
+        //PHP8 deprecates passing `null` to string parameters, superglobal values can be `null` / non-string
+        $text = (string) $text;
         
         //what's given could be any imaginable encoding, normalise it into UTF-8 though it may not yet be web-safe.
         //adapted from <php.net/mb_check_encoding#89286>, with thanks to Zegnat. this works by importing the current byte
@@ -131,7 +140,8 @@ function safeUTF8 (
 function safeTrim (&$text) {
         //we have to do this odd return because in order to pre-process the superglobals we have to call by-reference,
         //but calls that use anonymous variables or function return values will not be by-reference
-        return $text = preg_replace ('/^[\pZ\p{Cc}\p{Cf}\p{Cn}\p{Cs}]+|[\pZ\p{Cc}\p{Cf}\p{Cn}\p{Cs}]+$/u', '', $text);
+        //(`(string)` cast: PHP8 deprecates passing `null` to `preg_replace`'s subject)
+        return $text = preg_replace ('/^[\pZ\p{Cc}\p{Cf}\p{Cn}\p{Cs}]+|[\pZ\p{Cc}\p{Cf}\p{Cn}\p{Cs}]+$/u', '', (string) $text);
 }
 
 /* normaliseText : reduce unnecessary oddities in the text, such as converting special spaces to regular spaces
@@ -145,19 +155,22 @@ function safeTrim (&$text) {
    ---------------------------------------------------------------------------------------------------------------------- */
 function safeHTML ($text) {
         //note that `ENT_XHTML` & `ENT_SUBSTITUTE` are PHP5.4+ only
-        return htmlspecialchars ($text, ENT_NOQUOTES | @ENT_XHTML | @ENT_SUBSTITUTE, 'UTF-8');
+        //(`(string)` cast: PHP8 deprecates passing `null` to `htmlspecialchars`)
+        return htmlspecialchars ((string) $text, ENT_NOQUOTES | @ENT_XHTML | @ENT_SUBSTITUTE, 'UTF-8');
 }
 
 /* safeURL : encode a string to be used in a URL, keeping path separators
    ---------------------------------------------------------------------------------------------------------------------- */
 //WARNING: this does not sanitise against HTML, it’s assumed text is passed through `safeHTML` before output
 function safeURL ($text) {
-        return str_replace ('%2F', '/', rawurlencode ($text));
+        return str_replace ('%2F', '/', rawurlencode ((string) $text));
 }
 
 /* safeTransliterate : generate a safe (a-z0-9_) string, for use as file names or URLs, from an arbitrary string
    ---------------------------------------------------------------------------------------------------------------------- */
 function safeTransliterate ($text) {
+        //(`(string)` cast: PHP8 deprecates passing `null` to string functions)
+        $text = (string) $text;
         /* if available, this function uses PHP5.4's transliterater, which is capable of converting Arabic, Hebrew, Greek,
            Chinese, Japanese and more into ASCII! however, we use our manual (and crude) fallback *first* instead because
            we will take the liberty of transliterating some things into more readable ASCII-friendly forms,
@@ -255,7 +268,8 @@ function safeTransliterate ($text) {
                 : strtolower (function_exists ('iconv') ? str_replace (array ("'", '"', '`', '^', '~'), '', strtolower (
                         //note: results of this are different depending on iconv version,
                         //      sometimes the diacritics are written to the side e.g. "ñ" = "~n", which are removed
-                        iconv ('UTF-8', 'US-ASCII//IGNORE//TRANSLIT', $text)
+                        //(`@`: PHP8.2+ raises a deprecation when `//IGNORE` drops invalid characters)
+                        @iconv ('UTF-8', 'US-ASCII//IGNORE//TRANSLIT', $text)
                 )) : $text)
         );
         

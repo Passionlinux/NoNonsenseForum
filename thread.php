@@ -9,12 +9,13 @@
 require_once './start.php';
 
 //get the post message, the other fields (name / pass) are retrieved automatically in 'start.php'
-define ('TEXT', mb_substr (@$_POST['text'], 0, SIZE_TEXT));
+//(`(string)` cast required on PHP8, where passing `null` to `mb_substr` is deprecated)
+define ('TEXT', mb_substr ((string) @$_POST['text'], 0, SIZE_TEXT));
 
 //which thread to show
 //TODO: an error here should generate a 404, but we can't create a 404 in PHP that will send the server's provided 404 page.
 //      I may revist this if I create an NNF-provided 404 page
-$FILE   = (preg_match ('/^[_a-z0-9-]+$/', @$_GET['file']) ? $_GET['file'] : '') or die ('Malformed request');
+$FILE   = (preg_match ('/^[_a-z0-9-]+$/', @$_GET['file'] ?? '') ? $_GET['file'] : '') or die ('Malformed request');
 
 //load the thread (have to read lock status from the file)
 //TODO: if file is missing, give 404, as above
@@ -57,6 +58,10 @@ if (    (isset ($_POST['stick']) || isset ($_POST['unstick'])) &&
         //regenerate the folder's RSS file
         indexRSS ();
         
+        //return to the thread
+        //(this `$url` was undefined here before; on PHP8 that raises a Warning and, with `display_errors` on,
+        // the stray output made the `Location` header fail – so the redirect was previously broken)
+        $url = FORUM_URL.url (PATH_URL, $FILE);
         //redirect to eat the form submission
         header ("Location: $url", true, 303);
         exit;
@@ -110,7 +115,7 @@ if ((isset ($_POST['lock']) || isset ($_POST['unlock'])) && IS_MOD) {
 /* ======================================================================================================================
    append link clicked
    ====================================================================================================================== */
-if ($ID = (preg_match ('/^[A-Z0-9]+$/i', @$_GET['append']) ? $_GET['append'] : false)) {
+if ($ID = (preg_match ('/^[A-Z0-9]+$/i', @$_GET['append'] ?? '') ? $_GET['append'] : false)) {
         //get a write lock on the file so that between now and saving, no other posts could slip in
         $f   = fopen ("$FILE.rss", 'r+'); flock ($f, LOCK_EX);
         $xml = simplexml_load_string (fread ($f, filesize ("$FILE.rss"))) or require FORUM_LIB.'error_xml.php';
@@ -397,7 +402,7 @@ if (CAN_REPLY && AUTH && TEXT) {
                 $url = $xml->channel->item[0]->link;
         } else {
                 //where will this post exist?
-                $post_id = base_convert (microtime (), 10, 36);
+                $post_id = postID ();
                 $page = (count ($thread)+1) % FORUM_POSTS == 1
                         ? floor ((count ($thread)+1) / FORUM_POSTS)
                         : ceil  ((count ($thread)+1) / FORUM_POSTS)

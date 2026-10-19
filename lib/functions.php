@@ -163,6 +163,13 @@ function getStickies () {
         return array_filter ((array) @file ('sticky.txt', FILE_IGNORE_NEW_LINES));
 }
 
+//generate a unique, short, base-36 ID for a post (used for permalinks / HTML IDs)
+function postID () {
+        //`microtime` returns e.g. "0.12345678 1760893509"; the "." and " " are not valid digits for `base_convert`
+        //and PHP8.2 deprecates passing them in (they used to be silently ignored), so strip them out first
+        return base_convert (str_replace (array ('.', ' '), '', microtime ()), 10, 36);
+}
+
 /* ====================================================================================================================== */
 
 //take the author's message, process markup, and encode it safely for the RSS feed
