@@ -27,6 +27,12 @@
 //this must be a string from this list: <php.net/manual/en/timezones.php>, e.g. "Europe/London"
 @define ('FORUM_TIMEZONE',      'UTC');
 
+//the domain name (and optional port) the forum is served from, e.g. "forum.example.com" or "example.com:8080"
+//it is used to build absolute URLs (RSS feeds, redirects, canonical links, cookies). if left unset, it is taken
+//from the request's `Host` header, which is supplied by the visitor and can be forged (a forged value could end
+//up in your RSS feed or redirects), so on a public forum it is recommended to uncomment the line below and pin it
+#@define ('FORUM_HOST',         'forum.example.com');
+
 //if the forum should use--and force--HTTPS connections and URLs:
 //if set to true, RSS feeds will be saved with HTTPS URLs, and HTTP connections will automatically be redirected to HTTPS.
 //"HSTS" <en.wikipedia.org/wiki/HTTP_Strict_Transport_Security> will be used to tell clients to use HTTPS by default

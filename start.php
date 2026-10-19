@@ -121,10 +121,23 @@ define ('FORUM_PATH', safeURL (str_replace (
 //(`FORUM_TIMEZONE` is set in the config and defaults to 'UTC')
 date_default_timezone_set (FORUM_TIMEZONE);
 
+//the hostname used to build absolute URLs (links, RSS feeds, redirects, cookies).
+//`FORUM_HOST` can be pinned in 'config.php' (recommended, see 'config.default.php'); otherwise it is taken from
+//the request's `Host` header, which the visitor supplies — so it is validated and a malformed one is rejected
+//outright, to stop a forged `Host` header from injecting an arbitrary domain into your links / feeds / redirects
+if (!defined ('FORUM_HOST')) {
+        $host = @$_SERVER['HTTP_HOST'];
+        //(hostname, or an IPv6 literal in brackets, with an optional port)
+        if (!preg_match ('/^(?:[a-z0-9.\-]+|\[[0-9a-f:.]+\])(?::[0-9]+)?$/i', $host)) {
+                header ('HTTP/1.0 400 Bad Request'); die ('Invalid Host header');
+        }
+        define ('FORUM_HOST', $host);
+}
+
 //the full URL of the site is dependent on HTTPS configuration, so we wait until now to define it
 define ('FORUM_URL', 'http'.                                    //base URL to produce hyperlinks throughout:
         (FORUM_HTTPS || @$_SERVER['HTTPS'] == 'on' ? 's' : ''). //- if HTTPS is enforced, links in RSS will use it
-        '://'.$_SERVER['HTTP_HOST']
+        '://'.FORUM_HOST
 );
 
 //is the htaccess working properly?
@@ -167,6 +180,15 @@ foreach (array ('users/', 'lib/', 'themes/', 'cgi-bin/') as $_) if (PATH !== '' 
 //was an input form submitted? (used to determine form error checking; this doesn't apply to the sign-in button)
 define ('FORM_SUBMIT', (isset ($_POST['x'], $_POST['y']) || isset ($_POST['submit_x'], $_POST['submit_y'])));
 
+//CSRF protection: form submissions and the GET-based append / delete links change state, so they must come from
+//this site. a third-party page cannot forge `Origin` / `Referer` to point at our host, so such requests are refused
+//(see `isSameOrigin`; requests that send neither header, such as non-browser clients, are left alone)
+if ((FORM_SUBMIT || isset ($_POST['signin']) || isset ($_POST['lang'])
+        || isset ($_GET['append']) || isset ($_GET['delete'])) && !isSameOrigin ()) {
+        header ('HTTP/1.0 403 Forbidden');
+        die ('Cross-site request blocked');
+}
+
 
 /* access control
    ====================================================================================================================== */
@@ -201,11 +223,11 @@ if ((   //if HTTP authentication is used, we don’t need to validate the form f
         //- if registrations are allowed (`FORUM_NEWBIES` is true)
         //- you can’t create new users with the HTTP_AUTH sign in
         if (FORUM_NEWBIES && !isset ($_SERVER['PHP_AUTH_USER']) && !file_exists ($user))
-                file_put_contents ($user, hash ('sha512', $name.PASS)) or require FORUM_LIB.'error_permissions.php'
+                file_put_contents ($user, password_hash (PASS, PASSWORD_DEFAULT)) or require FORUM_LIB.'error_permissions.php'
         ;
         
-        //does password match?
-        define ('AUTH', @file_get_contents ($user) == hash ('sha512', $name.PASS));
+        //does the password match? (see `authUser`, which also upgrades any legacy hash it finds)
+        define ('AUTH', authUser ($user, $name, PASS));
         
         //if signed in with HTTP_AUTH, confirm that it’s okay to use
         //(e.g. the user could still have given the wrong password with HTTP_AUTH)
@@ -213,9 +235,11 @@ if ((   //if HTTP authentication is used, we don’t need to validate the form f
         
         //if the user clicked the sign-in button to authenticate, do a 303 redirect to the same URL to 'eat' the
         //form-submission so that if they click the back-button, they don't get prompted to "resubmit the form data"
-        if (@$_POST['signin'] && AUTH_HTTP) header (
-                'Location: '.FORUM_URL.$_SERVER['REQUEST_URI'], true, 301
-        );
+        //(303 "See Other", not 301: the request was a POST and must not be re-issued as a POST to the new URL)
+        if (@$_POST['signin'] && AUTH_HTTP) {
+                header ('Location: '.FORUM_URL.$_SERVER['REQUEST_URI'], true, 303);
+                exit;   //stop here; the redirect is the whole response
+        }
 } else {
         define ('AUTH',      false);
         define ('AUTH_HTTP', false);
@@ -273,9 +297,12 @@ foreach (explode (' ', THEME_LANGS) as $lang) @include THEME_ROOT."lang.$lang.ph
 //(note that the actual translation of the HTML is done in `prepareTemplate` in 'lib/functions.php')
 define ('LANG',
         //if the language selector has been used to choose a language:
-        isset ($_POST['lang']) && setcookie (
-        //- set the language cookie for 1 year
-        "lang", $_POST['lang'], time ()+60*60*24*365, FORUM_PATH, $_SERVER['HTTP_HOST'], FORUM_HTTPS
+        //(validate it against the languages the theme actually provides, before storing it in a cookie)
+        isset ($_POST['lang']) && array_key_exists ($_POST['lang'], $LANG) && setcookie (
+        //- set the language cookie for 1 year (`HttpOnly`: it isn't needed by JavaScript)
+        //- a cookie's domain is a hostname, not a host:port pair, so the port (if any) is stripped here
+        "lang", $_POST['lang'], time ()+60*60*24*365, FORUM_PATH,
+        preg_replace ('/:[0-9]+$/', '', FORUM_HOST), FORUM_HTTPS, true
 )       ? $_POST['lang']
         //otherwise, does a cookie already exist to set the language?
         : (     //validate that the language in the cookie actually exists!
@@ -328,7 +355,7 @@ if (FORUM_HTTPS) if (@$_SERVER['HTTPS'] == 'on') {
 } else {
         //if forced-HTTPS is on and a HTTPS connection is not being used, redirect to the HTTPS version of the current page
         //(we don’t die here so that should the redirect be ignored, the HTTP version of the page will still be given)
-        header ('Location: https://'.$_SERVER['HTTP_HOST'].$_SERVER['REQUEST_URI'], true, 301);
+        header ('Location: https://'.FORUM_HOST.$_SERVER['REQUEST_URI'], true, 301);
 }
 
 //if the sign-in button was clicked, (and they're not already signed-in), invoke a HTTP_AUTH request in the browser:

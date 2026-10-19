@@ -12,6 +12,21 @@ function flattenParams (array &$params) {
         foreach ($params as $key => &$value) if (!is_string ($value)) $value = '';
 }
 
+//CSRF protection: was the current request made by the site itself, rather than a third-party page?
+//the browser sets `Origin` / `Referer` and a hostile page cannot forge them, so comparing the host against
+//`FORUM_HOST` blocks cross-site form submissions and the GET-based append / delete links.
+//a request that provides neither header (e.g. a non-browser client) is allowed, as there's nothing to compare
+function isSameOrigin () {
+        $origin = @$_SERVER['HTTP_ORIGIN'] ? @$_SERVER['HTTP_ORIGIN'] : @$_SERVER['HTTP_REFERER'];
+        if (!$origin) return true;
+        $parts = @parse_url ($origin);
+        if (!is_array ($parts) || !isset ($parts['host'])) return false;
+        $host = $parts['host'].(isset ($parts['port']) ? ':'.$parts['port'] : '');
+        //compare against the host the request was addressed to, and the canonical `FORUM_HOST` if it was pinned
+        return strcasecmp ($host, (string) @$_SERVER['HTTP_HOST']) === 0
+                || strcasecmp ($host, FORUM_HOST) === 0;
+}
+
 //formulate a URL (used to automatically fallback to non-pretty URLs when htaccess is not available),
 //the domain is not included because it is not used universally throughout (absolute-base / relative links)
 function url (
@@ -163,6 +178,23 @@ function isMod ($name) {
 //a member of a locked forum?
 function isMember ($name) {
         global $MEMBERS; return in_array (strtolower ($name), array_map ('strtolower', $MEMBERS));
+}
+
+//verify a user's password against their stored hash file (`$user`), upgrading legacy hashes on the way in.
+//new passwords are stored with `password_hash`; older NoNonsense Forum installs used an unsalted `sha512` hash,
+//so those are checked with the legacy formula and transparently re-hashed with `password_hash` when they match
+function authUser ($user, $name, $pass) {
+        $hash = @file_get_contents ($user);
+        if ($hash === false || $hash === '') return false;
+        //modern hashes (bcrypt "$2y$…" / argon2 "$argon2…") start with a "$"; verify them directly
+        if ($hash[0] === '$') return password_verify ($pass, $hash);
+        //legacy hash: `sha512 ("<sha512 of the lowercased username>" . password)`; compare in constant time and,
+        //on success, rewrite the file as a modern hash so that the weak hash lives no longer than necessary
+        if (hash_equals ($hash, hash ('sha512', $name.$pass))) {
+                @file_put_contents ($user, password_hash ($pass, PASSWORD_DEFAULT));
+                return true;
+        }
+        return false;
 }
 
 //get the list of sticky threads in the current forum / sub-forum
@@ -341,8 +373,8 @@ function formatText (
                                 foreach ($rss->channel->item as $item) if (safeHTML (strtolower ($item->author)) == $name)
                         {       //replace the reference with the link to the post
                                 $text = substr_replace ($text,
-                                        //TODO: `safeHTML` isn't quote safe
-                                        '<a href="'.safeHTML ($item->link).'"'.(isMod ($name) ? ' class="nnf_mod"' : '').'>'
+                                        //(`safeAttr`, not `safeHTML`: this goes inside a `href="…"` attribute)
+                                        '<a href="'.safeAttr ($item->link).'"'.(isMod ($name) ? ' class="nnf_mod"' : '').'>'
                                                 .substr ($m[1][0], 0, strlen ($name)+1).
                                         '</a>',
                                         $m[1][1], strlen ($name)+1
@@ -383,8 +415,8 @@ function formatText (
                 $text = substr_replace ($text, $replace =
                         //(note: code spans in titles don't transliterate since they've been replaced with placeholders)
                         "\n\n<h2 id=\"$post_id::$id\">".
-                                //TODO: `safeHTML` isn't quote-safe
-                                "<a href=\"".safeHTML ($permalink)."#$post_id::$id\">".$m[1][0]."</a>".
+                                //(`safeAttr`, not `safeHTML`: this goes inside a `href="…"` attribute)
+                                "<a href=\"".safeAttr ($permalink)."#$post_id::$id\">".$m[1][0]."</a>".
                         "</h2>\n",
                         //where to substitute
                         $m[0][1], strlen ($m[0][0])

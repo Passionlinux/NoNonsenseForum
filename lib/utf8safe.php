@@ -155,8 +155,17 @@ function safeTrim (&$text) {
    ---------------------------------------------------------------------------------------------------------------------- */
 function safeHTML ($text) {
         //note that `ENT_XHTML` & `ENT_SUBSTITUTE` are PHP5.4+ only
+        //NOTE: `ENT_NOQUOTES` is deliberate! `formatText` relies on literal `"` characters for its quote markup,
+        //      so quotes must be left alone here; use `safeAttr` instead for anything going into an attribute
         //(`(string)` cast: PHP8 deprecates passing `null` to `htmlspecialchars`)
         return htmlspecialchars ((string) $text, ENT_NOQUOTES | @ENT_XHTML | @ENT_SUBSTITUTE, 'UTF-8');
+}
+
+/* safeAttr : encode a string for insertion into an HTML attribute value
+   ---------------------------------------------------------------------------------------------------------------------- */
+//unlike `safeHTML`, quotes are encoded so that the value cannot break out of the attribute it sits in
+function safeAttr ($text) {
+        return htmlspecialchars ((string) $text, ENT_QUOTES | @ENT_SUBSTITUTE, 'UTF-8');
 }
 
 /* safeURL : encode a string to be used in a URL, keeping path separators
