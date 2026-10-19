@@ -537,6 +537,79 @@ section>h1 + nav                {background: none; float: right; margin-top: -50
 /* ======================================================================================================================
    HiDPI  / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / /
    ====================================================================================================================== */
+/* ======================================================================================================================
+   dark mode  / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / / /
+   ====================================================================================================================== */
+/* follow the operating system / browser preference (there's no toggle to store, so no cookie and no JavaScript).
+   this theme is deliberately low-contrast, so dark mode only has to swap the greys over: the layout and the images
+   are unchanged, and `color-scheme` lets the browser darken scrollbars and native form controls to match */
+@media (prefers-color-scheme: dark) {
+
+html                            {color: #b0b0b0; color-scheme: dark; background-color: #111;
+                                 /* replace the white-to-grey gradient with a dark one */
+                                 background-image: linear-gradient(#262626, #111);}
+section                         {color: #ccc; background: #1b1b1b;}
+h1, section h1,
+ #mast h1                       {color: #f2f2f2; background-color: #000;}
+
+a                               {color: #ddd;}
+a:hover                         {color: #fff;}
+#mast h1 a                      {color: #f2f2f2;}
+#info a                         {color: #aaa;}
+#nnf_add, #nnf_reply, #nnf_rss  {color: #ddd !important;}
+
+/* page numbers */
+section nav                     {color: #999; background-color: #2b2b2b;}
+ol.nnf_pages a                  {color: #999;}
+ol.nnf_pages a:hover            {color: #fff; background-color: #555;}
+ol.nnf_pages em                 {color: #fff; background: #555;}
+
+/* sub-forum / thread lists */
+ol.ui                           {border-color: #555;}
+ol.ui li                        {border-bottom-color: #555; color: #999;}
+ol.ui li.nnf_sticky             {background: #262626;}
+ol.ui li time                   {color: #999;}
+
+/* posts */
+article                         {border-color: #555;}
+article header                  {color: #999; background: #2b2b2b; border-bottom-color: #555;}
+article header .ui              {color: #999;}
+article header .ui:hover        {color: #fff;}
+article.nnf_op header           {color: #ddd; background: #444;}
+article.nnf_deleted             {color: #777;}
+article.nnf_deleted header,
+ article.nnf_error header       {color: #777; background: #1b1b1b;}
+article h2, article .hr         {border-bottom-color: #888;}
+blockquote                      {border-left-color: #888;}
+.ct                             {border-bottom-color: #888;}
+.cb                             {border-top-color: #888;}
+
+/* forms */
+form                            {border-color: #555;}
+label                           {color: #ccc;}
+form p                          {color: #999;}
+input[type=text], input[type=password], input[type=search], textarea, select
+                                {color: #ddd; background-color: #151515;}
+#nnf_title-field,
+ #nnf_name-field,
+ #nnf_name-field-http,
+ #nnf_pass-field                {border-bottom-color: #555;}
+#ptitle label                   {border-bottom-color: #555;}
+#ptext label                    {border-right-color: #1b1b1b; background: #1b1b1b;}
+#nnf_text-field                 {border-right-color: #555;}
+#psubmit                        {background: #2b2b2b;}
+#psubmit label                  {color: #eee;}
+#query                          {color: #ddd; background-color: #222;}
+#nnf_lang select                {color: #ddd; background-color: #151515; border-color: #555;}
+
+/* footer */
+footer                          {background: #000;}
+footer p                        {color: #eee;}
+footer p a                      {color: #888;}
+#signin input                   {color: #eee;}
+
+}
+
 @media print,
        (-o-min-device-pixel-ratio: 5/4),
        (-webkit-min-device-pixel-ratio: 1.25),
