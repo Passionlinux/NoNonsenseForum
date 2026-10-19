@@ -85,7 +85,8 @@ define ('FORUM_ROOT',   dirname (__FILE__));
 define ('FORUM_LIB',    FORUM_ROOT.DIRECTORY_SEPARATOR.'lib'.DIRECTORY_SEPARATOR);
 
 //correct PHP version?
-if (version_compare (PHP_VERSION, '5.2.3') < 0) require FORUM_LIB.'error_phpver.php';
+//(`5.6` rather than `5.2.3`: password hashing uses `password_hash` (5.5+) and `hash_equals` (5.6+))
+if (version_compare (PHP_VERSION, '5.6') < 0) require FORUM_LIB.'error_phpver.php';
 
 //if Apache is being used, check Apache version
 if (function_exists ('apache_get_version')) if (!preg_match (
