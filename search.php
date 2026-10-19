@@ -87,6 +87,11 @@ $results = array_slice ($results, ($PAGE-1) * FORUM_SEARCH, FORUM_SEARCH);
 /* ======================================================================================================================
    template the page
    ====================================================================================================================== */
+//themes written before this version have no 'search.html'; say so plainly rather than render a broken page
+if (!is_file (THEME_ROOT.'search.html')) errorPage (500,
+        'The selected theme does not include a search template (search.html)'
+);
+
 $template = prepareTemplate (
         //template, no canonical URL      //HTML title
         THEME_ROOT.'search.html', '', sprintf (THEME_TITLE, @$LANG[LANG]['title_search'] ?: 'Search', '')
