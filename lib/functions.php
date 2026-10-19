@@ -139,6 +139,19 @@ function prepareTemplate (
         //own inline scripts are allowed without having to enable `'unsafe-inline'` (see 'start.php')
         foreach ($template->query ('//script') as $node) $node->setAttribute ('nonce', CSP_NONCE);
         
+        //add the CSRF token to every POST form ('start.php' refuses any POST that doesn't echo it back).
+        //only POST forms: the search box submits a GET to an external search engine and must not leak the token
+        foreach ($template->query (
+                //(note: no space after the commas -- `query` splits multiple queries on ", ")
+                '//form[translate(@method,"ABCDEFGHIJKLMNOPQRSTUVWXYZ","abcdefghijklmnopqrstuvwxyz")="post"]'
+        ) as $form) {
+                $input = $form->ownerDocument->createElement ('input');
+                $input->setAttribute ('type',  'hidden');
+                $input->setAttribute ('name',  'csrf');
+                $input->setAttribute ('value', CSRF_TOKEN);
+                $form->appendChild ($input);
+        }
+        
         /* translate!
            ---------------------------------------------------------------------------------------------------------------*/
         //before we start changing element content, we run through the language translation, if necessary;

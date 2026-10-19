@@ -27,6 +27,7 @@ define ('PATH',          '');
 define ('NAME',          '');
 define ('AUTH_HTTP',     false);
 define ('CSP_NONCE',     'phpunit-nonce');
+define ('CSRF_TOKEN',    '0123456789abcdef0123456789abcdef');
 define ('FORUM_THREADS', 50);
 define ('FORUM_POSTS',   25);
 define ('THEME_ROOT',    FORUM_ROOT.DIRECTORY_SEPARATOR.'themes'.DIRECTORY_SEPARATOR.'greyscale'.DIRECTORY_SEPARATOR);
@@ -37,3 +38,6 @@ define ('LANG',          '');
 $GLOBALS['LANG']    = array ();
 $GLOBALS['MODS']    = array ('GLOBAL' => array (), 'LOCAL' => array ());
 $GLOBALS['MEMBERS'] = array ();
+
+//the templating engine used by `prepareTemplate` (not autoloaded: it is not a composer dependency)
+require_once FORUM_LIB.'domtemplate/domtemplate.php';

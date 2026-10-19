@@ -30,6 +30,8 @@
         PATH_DIR        // ?    relative server path from NNF's root (`FORUM_ROOT`) to the current sub-forum
         SUBFORUM                the name of the current sub-forum (regardless of nesting), not URL-encoded
         FORM_SUBMIT     b       if an input form has been submitted (new-thread / reply / delete / append)
+        CSRF_TOKEN              random token that every form must echo back, to prove that the request came from
+                                a page this forum served (see the CSRF section further down)
         
         NAME                    username given
         PASS                    password given
@@ -196,6 +198,37 @@ define ('FORM_SUBMIT', (isset ($_POST['x'], $_POST['y']) || isset ($_POST['submi
 if ((FORM_SUBMIT || isset ($_POST['signin']) || isset ($_POST['lang'])
         || isset ($_GET['append']) || isset ($_GET['delete'])) && !isSameOrigin ()) {
         errorPage (403, 'Cross-site request blocked');
+}
+
+/* CSRF token ("double-submit cookie")
+   ---------------------------------------------------------------------------------------------------------------------- */
+/* the same-origin check above depends on the browser sending `Origin` / `Referer`; some privacy tools withhold both,
+   and non-browser clients send neither. as a second, independent barrier, every form carries a random token that has
+   to match a cookie held by the client. a hostile page can neither read nor set that cookie (it is `SameSite=Lax`),
+   so it cannot produce a valid token.
+   the token is generated once per visitor rather than once per response, so that pages stay cacheable (`output` in
+   'lib/functions.php' blanks it out when hashing); it is never used to identify anybody, only to prove that the
+   request came from a form this forum served
+*/
+if (isset ($_COOKIE['csrf']) && preg_match ('/^[a-f0-9]{32}$/', $_COOKIE['csrf'])) {
+        define ('CSRF_TOKEN', $_COOKIE['csrf']);
+} else {
+        define ('CSRF_TOKEN', bin2hex (random_bytes (16)));
+        setcookie ('csrf', CSRF_TOKEN, array (
+                'expires'  => time ()+60*60*24*365,
+                'path'     => FORUM_PATH,
+                'domain'   => preg_replace ('/:[0-9]+$/', '', FORUM_HOST),
+                'secure'   => FORUM_HTTPS,
+                'httponly' => true,
+                'samesite' => 'Lax'
+        ));
+}
+
+//every POST is a state change (no form here merely displays something), so every POST must carry the token. this also
+//covers the admin buttons (lock / stick &c.), which don't submit the `x` / `y` fields that `FORM_SUBMIT` looks for,
+//and which the same-origin check above would therefore have missed on its own
+if (@$_SERVER['REQUEST_METHOD'] === 'POST' && !hash_equals (CSRF_TOKEN, (string) @$_POST['csrf'])) {
+        errorPage (403, 'Invalid or missing form token');
 }
 
 
