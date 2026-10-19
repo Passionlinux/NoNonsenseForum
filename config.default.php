@@ -54,6 +54,11 @@
 @define ('FORUM_THREADS',       50);
 @define ('FORUM_POSTS',         25);
 
+//minimum number of seconds between two posts (new threads, replies and appends) from the same client, to slow down
+//spam bots. set to 0 to disable. the client is identified by its IP address, which is stored hashed in 'flood.txt'
+//(never in plain text); '.htaccess' blocks that file from being downloaded
+@define ('FORUM_FLOOD',         30);
+
 //maximum allowed size (number of characters) of input fields
 @define ('SIZE_NAME',           20);            //user name
 @define ('SIZE_PASS',           20);            //password

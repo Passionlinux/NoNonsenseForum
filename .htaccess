@@ -162,7 +162,7 @@ FileETag None
 	# don’t allow direct download of the moderator / member lists and thread-state files, which are plain text and
 	# read only from the PHP. (`RewriteRule` rather than `<FilesMatch>`+`Require`: the latter needs `AllowOverride
 	# AuthConfig`, whereas these rules only need `FileInfo`, which the rest of this file already depends on)
-	RewriteRule (?:^|/)(?:mods|members|locked|sticky)\.txt$ - [NC,F]
+	RewriteRule (?:^|/)(?:mods|members|locked|sticky|flood)\.txt$ - [NC,F]
 	
 	# don’t allow forum access to users / themes / lib folder
 	RewriteCond %{QUERY_STRING} path=(?:themes|users|lib) [NC]

@@ -30,13 +30,14 @@ function isSameOrigin () {
 //stop with a proper HTTP error page. the page is deliberately self-contained -- it does not use the theme or any
 //translation -- so that it still works when the theme or the configuration is broken (which is often *why* it is
 //being shown in the first place)
-function errorPage ($code, $message='') {
+function errorPage ($code, $message='', $retry=0) {
         //standard reason phrases, so that a caller only has to supply the status code (and optionally some detail)
         static $status = array (
                 400 => 'Bad Request',
                 403 => 'Forbidden',
                 404 => 'Not Found',
                 405 => 'Method Not Allowed',
+                429 => 'Too Many Requests',
                 500 => 'Internal Server Error'
         );
         $reason = isset ($status[$code]) ? $status[$code] : 'Error';
@@ -47,6 +48,8 @@ function errorPage ($code, $message='') {
         //the caller's explanation, falling back on the generic reason phrase
         $detail = safeHTML ($message !== '' ? $message : $reason);
         
+        //tell the client how long to wait, when the caller knows (e.g. the anti-flood limit)
+        if ($retry) header ('Retry-After: '.(int) $retry);
         http_response_code ($code);
         
         exit (<<<HTML
@@ -271,6 +274,41 @@ function postID () {
         //`microtime` returns e.g. "0.12345678 1760893509"; the "." and " " are not valid digits for `base_convert`
         //and PHP8.2 deprecates passing them in (they used to be silently ignored), so strip them out first
         return base_convert (str_replace (array ('.', ' '), '', microtime ()), 10, 36);
+}
+
+//anti-flood: stop the same client from creating posts faster than `FORUM_FLOOD` allows.
+//returns 0 when the post may go ahead -- and records it -- or the number of seconds the client must still wait.
+//the records live in 'flood.txt' in the forum root, one "<hashed-client> <timestamp>" line each. the client's IP
+//address is hashed rather than stored in the clear, and '.htaccess' blocks the file from being downloaded.
+//(the optional parameters let the test-suite try this out without touching the live forum)
+function floodLimit ($window=NULL, $file=NULL) {
+        $window = is_null ($window) ? FORUM_FLOOD : (int) $window;
+        if ($window <= 0) return 0;
+        
+        $file = is_null ($file) ? FORUM_ROOT.DIRECTORY_SEPARATOR.'flood.txt' : $file;
+        $key  = hash ('sha256', 'nnf-flood:'.(string) @$_SERVER['REMOTE_ADDR']);
+        $now  = time ();
+        
+        //read the existing records, dropping stale ones so that the file doesn't grow without bound
+        $records = array ();
+        if (is_file ($file)) foreach ((array) @file ($file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $line) {
+                $parts = explode ("\t", $line);
+                if (count ($parts) !== 2 || !ctype_digit ($parts[1])) continue;
+                if ($now - (int) $parts[1] > 3600) continue;
+                $records[$parts[0]] = (int) $parts[1];
+        }
+        
+        //has this client posted within the window?
+        if (isset ($records[$key]) && $now - $records[$key] < $window) {
+                return $window - ($now - $records[$key]);
+        }
+        
+        //record this post
+        $records[$key] = $now;
+        $lines = array ();
+        foreach ($records as $hash => $time) $lines[] = "$hash\t$time";
+        @file_put_contents ($file, implode ("\n", $lines)."\n", LOCK_EX) or require FORUM_LIB.'error_permissions.php';
+        return 0;
 }
 
 /* ====================================================================================================================== */

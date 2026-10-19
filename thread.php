@@ -142,6 +142,11 @@ if ($ID = (preg_match ('/^[A-Z0-9]+$/i', @$_GET['append'] ?? '') ? $_GET['append
                 if (    //normalise the original post and the append, and check the end of the original for a match
                         substr (unformatText ($post->description), -strlen ($_ = unformatText (formatText (TEXT)))) !== $_
                 ) {     
+                        //anti-flood: has this client only just posted? (see `floodLimit` in 'lib/functions.php')
+                        if ($wait = floodLimit ()) errorPage (429, sprintf (
+                                'Too many posts. Please wait %d seconds before posting again.', $wait
+                        ), $wait);
+                        
                         //append the given text to the reply
                         $post->description = formatText (
                                 //NNF's markup is unique in that it is fully reversable just by stripping the HTML tags!
@@ -407,6 +412,11 @@ if (CAN_REPLY && AUTH && TEXT) {
                 //if you can't post / double-post, redirect back to the previous post
                 $url = $xml->channel->item[0]->link;
         } else {
+                //anti-flood: has this client only just posted? (see `floodLimit` in 'lib/functions.php')
+                if ($wait = floodLimit ()) errorPage (429, sprintf (
+                        'Too many posts. Please wait %d seconds before posting again.', $wait
+                ), $wait);
+                
                 //where will this post exist?
                 $post_id = postID ();
                 $page = (count ($thread)+1) % FORUM_POSTS == 1

@@ -129,4 +129,39 @@ class FunctionsTest extends TestCase {
         public function testAuthUserRejectsMissingUser () {
                 $this->assertFalse (authUser (sys_get_temp_dir ().'/nnf-does-not-exist', 'alice', 'x'));
         }
+        
+        /* anti-flood
+           -------------------------------------------------------------------------------------------------------------- */
+        public function testFloodLimitRecordsAndCountsDown () {
+                $file = tempnam (sys_get_temp_dir (), 'nnf');
+                unlink ($file);
+                $_SERVER['REMOTE_ADDR'] = '192.0.2.1';
+                
+                $this->assertSame (0, floodLimit (60, $file), 'the first post should be allowed');
+                $this->assertGreaterThan  (0, floodLimit (60, $file), 'a second post should be refused');
+                $this->assertLessThanOrEqual (60, floodLimit (60, $file));
+                
+                //a different client is not affected by the first one's post
+                $_SERVER['REMOTE_ADDR'] = '192.0.2.2';
+                $this->assertSame (0, floodLimit (60, $file));
+                
+                //a window of 0 disables the limit entirely
+                $this->assertSame (0, floodLimit (0, $file));
+                
+                //the client's IP address must never be written to the file in the clear
+                $this->assertStringNotContainsString ('192.0.2.1', (string) @file_get_contents ($file));
+                @unlink ($file);
+        }
+        
+        public function testFloodLimitPrunesStaleRecords () {
+                $file = tempnam (sys_get_temp_dir (), 'nnf');
+                file_put_contents ($file, "stale\t".(time ()-7200)."\nfresh\t".time ()."\n");
+                $_SERVER['REMOTE_ADDR'] = '192.0.2.3';
+                
+                floodLimit (60, $file);
+                $content = (string) file_get_contents ($file);
+                $this->assertStringNotContainsString ("stale\t", $content, 'records older than an hour should be dropped');
+                $this->assertStringContainsString    ("fresh\t", $content, 'recent records must be kept');
+                @unlink ($file);
+        }
 }

@@ -9,6 +9,7 @@ parameters:
         - AUTH_HTTP
         - LANG
         - THEME_LANGS
+        - FORUM_FLOOD
     paths:
         - lib/functions.php
         - lib/utf8safe.php

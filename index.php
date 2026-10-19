@@ -29,6 +29,11 @@ define ('CAN_POST', FORUM_ENABLED && (
 //has the user submitted a new thread?
 //(`AUTH` will be true if username and password submitted and correct, `TITLE` and `TEXT` are checked to not be blank)
 if (CAN_POST && AUTH && TITLE && TEXT) {
+        //anti-flood: has this client only just posted? (see `floodLimit` in 'lib/functions.php')
+        if ($wait = floodLimit ()) errorPage (429, sprintf (
+                'Too many posts. Please wait %d seconds before posting again.', $wait
+        ), $wait);
+        
         //the file on disk is a simplified version of the title; see 'lib/functions.php' for `safeTransliterate`
         $translit = safeTransliterate (TITLE);
         

@@ -30,6 +30,8 @@ define ('CSP_NONCE',     'phpunit-nonce');
 define ('CSRF_TOKEN',    '0123456789abcdef0123456789abcdef');
 define ('FORUM_THREADS', 50);
 define ('FORUM_POSTS',   25);
+//(the anti-flood tests always pass an explicit window, so the default does not matter here)
+define ('FORUM_FLOOD',   0);
 define ('THEME_ROOT',    FORUM_ROOT.DIRECTORY_SEPARATOR.'themes'.DIRECTORY_SEPARATOR.'greyscale'.DIRECTORY_SEPARATOR);
 define ('THEME_LANGS',   '');
 define ('LANG',          '');
