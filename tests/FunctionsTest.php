@@ -164,4 +164,33 @@ class FunctionsTest extends TestCase {
                 $this->assertStringContainsString    ("fresh\t", $content, 'recent records must be kept');
                 @unlink ($file);
         }
+        
+        /* search excerpts
+           -------------------------------------------------------------------------------------------------------------- */
+        public function testSearchSnippetMarksTheMatch () {
+                $html = searchSnippet ('<p>The quick brown fox jumps over the lazy dog</p>', 'fox', 10);
+                $this->assertStringContainsString ('<mark>fox</mark>', $html);
+                $this->assertStringStartsWith ('…', $html);
+                $this->assertStringEndsWith   ('…', $html);
+        }
+        
+        public function testSearchSnippetIsCaseInsensitiveAndShowsTextOnly () {
+                $html = searchSnippet ('<p>Hello <b>World</b> &amp; all</p>', 'world');
+                $this->assertStringContainsString    ('<mark>World</mark>', $html);
+                $this->assertStringNotContainsString ('<p>', $html);
+                $this->assertStringNotContainsString ('<b>', $html);
+                $this->assertStringContainsString    ('&amp;', $html);
+        }
+        
+        public function testSearchSnippetEscapesMarkup () {
+                $html = searchSnippet ('<p>watch out for &lt;script&gt; tags</p>', 'script');
+                $this->assertStringNotContainsString ('<script>', $html);
+                $this->assertStringContainsString    ('<mark>script</mark>', $html);
+                $this->assertStringContainsString    ('&lt;', $html);
+        }
+        
+        public function testSearchSnippetWithoutAMatchShowsTheBeginning () {
+                $html = searchSnippet ('<p>Nothing to see here</p>', 'zebra');
+                $this->assertStringStartsWith ('Nothing to see here', $html);
+        }
 }

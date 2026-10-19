@@ -133,9 +133,11 @@ function prepareTemplate (
         
         //fix all absolute URLs (i.e. if NNF is running in a folder):
         //(this also fixes the forum-title home link "/" when NNF runs in a folder)
-        foreach ($template->query ('//*/@href, //*/@src, //*/@content') as $node) if ($node->nodeValue[0] == '/')
-                //prepend the base path of the forum ('/' if on root, '/folder/' if running in a sub-folder)
-                $node->nodeValue = FORUM_PATH.ltrim ($node->nodeValue, '/')
+        foreach ($template->query ('//*/@href, //*/@src, //*/@content, //*/@action') as $node)
+                //(`strlen` guard: an empty attribute has no first character)
+                if (strlen ($node->nodeValue) && $node->nodeValue[0] === '/')
+                        //prepend the base path of the forum ('/' if on root, '/folder/' if running in a sub-folder)
+                        $node->nodeValue = FORUM_PATH.ltrim ($node->nodeValue, '/')
         ;
         
         //attach the per-response Content-Security-Policy nonce to every `<script>` in the theme, so that the theme's
@@ -143,7 +145,8 @@ function prepareTemplate (
         foreach ($template->query ('//script') as $node) $node->setAttribute ('nonce', CSP_NONCE);
         
         //add the CSRF token to every POST form ('start.php' refuses any POST that doesn't echo it back).
-        //only POST forms: the search box submits a GET to an external search engine and must not leak the token
+        //only POST forms: the search box is a GET form, and the token has no business in a URL (it would end up in
+        //the address bar, the history and the server logs)
         foreach ($template->query (
                 //(note: no space after the commas -- `query` splits multiple queries on ", ")
                 '//form[translate(@method,"ABCDEFGHIJKLMNOPQRSTUVWXYZ","abcdefghijklmnopqrstuvwxyz")="post"]'
@@ -576,6 +579,32 @@ function formatText (
 //this is used to append text to existing posts whilst ensuring unique heading IDs
 function unformatText ($text) {
         return html_entity_decode (strip_tags ($text), ENT_COMPAT, 'UTF-8');
+}
+
+//build a search-result excerpt around the first occurrence of `$query`, with the match wrapped in `<mark>`.
+//the post is HTML, but only its text is shown; every piece is escaped here, so the returned string is safe HTML
+function searchSnippet ($text, $query, $context=120) {
+        //flatten the post to text, and every run of whitespace (`formatText` leaves plenty) to a single space
+        $text  = preg_replace ('/\s+/', ' ', unformatText ($text));
+        $text  = safeTrim ($text);
+        $query = safeTrim ($query);
+        $len   = mb_strlen ($text);
+        
+        //where does the query appear in the text? (multibyte-safe, case-insensitive)
+        $pos = $query !== '' ? mb_stripos ($text, $query) : false;
+        
+        //not in the text itself (it matched the title or the author): show the beginning of the post instead
+        if ($pos === false) return safeHTML (mb_substr ($text, 0, $context*2)).($len > $context*2 ? '…' : '');
+        
+        //a window around the match, with ellipses where text has been cut away on either side
+        $start = max (0, $pos - $context);
+        $end   = min ($len, $pos + mb_strlen ($query) + $context);
+        return ($start ? '…' : '')
+                .safeHTML (mb_substr ($text, $start, $pos - $start))
+                .'<mark>'.safeHTML (mb_substr ($text, $pos, mb_strlen ($query))).'</mark>'
+                .safeHTML (mb_substr ($text, $pos + mb_strlen ($query), $end - $pos - mb_strlen ($query)))
+                .($end < $len ? '…' : '')
+        ;
 }
 
 /* ====================================================================================================================== */

@@ -59,6 +59,9 @@
 //(never in plain text); '.htaccess' blocks that file from being downloaded
 @define ('FORUM_FLOOD',         30);
 
+//number of search results to show per page
+@define ('FORUM_SEARCH',        20);
+
 //maximum allowed size (number of characters) of input fields
 @define ('SIZE_NAME',           20);            //user name
 @define ('SIZE_PASS',           20);            //password

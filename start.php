@@ -399,7 +399,7 @@ define ('CSP_NONCE', bin2hex (random_bytes (16)));
 header (
         "Content-Security-Policy: default-src 'self'; script-src 'self' 'nonce-".CSP_NONCE."'; ".
         "style-src 'self' 'unsafe-inline'; img-src 'self' data:; object-src 'none'; base-uri 'self'; ".
-        "form-action 'self' https://www.google.com; frame-ancestors 'none'"
+        "form-action 'self'; frame-ancestors 'none'"
 );
 //don't let browsers guess content types, and don't allow the forum to be framed (clickjacking)
 header ('X-Content-Type-Options: nosniff');

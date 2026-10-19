@@ -51,6 +51,22 @@ $LANG['en']['title_append']     = 'Append to %1$s';
 //"%1$s" - the post title (will come from `THEME_RE` for replies)
 $LANG['en']['title_delete']     = 'Delete %1$s?';
 
+//the HTML title of the search page
+$LANG['en']['title_search']     = 'Search';
+
+//the search page's result summary:
+//"%1$u" - the number of matches
+//"%2$s" - what was searched for
+$LANG['en']['search_results']   = '%1$u results for “%2$s”.';
+//(the singular, for exactly one match)
+$LANG['en']['search_result']    = '%1$u result for “%2$s”.';
+//"%1$s" - what was searched for
+$LANG['en']['search_none']      = 'No results for “%1$s”.';
+//shown before anything has been searched for
+$LANG['en']['search_prompt']    = 'Search every discussion in this forum.';
+//shown when a very broad query hits the internal limit on matches
+$LANG['en']['search_limited']   = 'Too many matches; only the first results are shown. Try a more specific query.';
+
 //reply number shown in threads as a permalink
 //"%1$u" - the number of the reply
 $LANG['en']['replynum']         = '#%1$u.';
@@ -82,7 +98,7 @@ $LANG['en']['strings']          = array (
 /* site header
    ---------------------------------------------------------------------------------------------------------------------- */
 //search box
- '#query@placeholder'                   => 'Google Search…'                     //default text shown in search box
+ '#query@placeholder'                   => 'Search…'                            //default text shown in search box
 ,'#go@alt'                              => 'Search'                             //search submit button
 
 //language selector
@@ -160,6 +176,12 @@ HTML
 
 ,'#delete/form/p/'.
  'label@for="submit"/span'              => 'Delete'                             //form submit button
+
+/* search page
+   ---------------------------------------------------------------------------------------------------------------------- */
+,'#nnf_search/h1'                       => 'Search'                             //search page title
+,'.nnf_result-forum-label'              => 'in'                                 //precedes the sub-forum name
+,'.nnf_result-author-label'             => 'by'                                 //precedes the post author
 
 /* input forms
    ---------------------------------------------------------------------------------------------------------------------- */
@@ -488,8 +510,7 @@ HTML
                 collected by any part of NoNonsense Forum itself; again, contact the website owner with any questions
         </p></li>
         <li><p>
-                The search feature is controlled by a third party (usually <a href="http://google.com">Google</a>),
-                and will certainly collect information. Please check their website for their privacy policy
+                Searching is handled by this forum itself; what you search for is not sent to any third party
         </p></li>
 </ul>
 

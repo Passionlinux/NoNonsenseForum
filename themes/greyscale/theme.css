@@ -262,6 +262,22 @@ article .hr                     {height: 1px; margin: 19px 0 0; padding: 0; over
                                  border-bottom: 1px dotted #222; text-indent: -999em;}
 
 
+/* search page
+   ====================================================================================================================== */
+#nnf_search h1                  {background-image: url("img/help.png"); background-size: 32px 32px;}
+#nnf_search-summary             {padding-top: 20px; color: #888;}
+.nnf_result                     {padding-bottom: 19px !important;}
+.nnf_result-title               {display: block; font-weight: bold;}
+.nnf_result-forum               {display: block; float: right; padding-left: 20px;
+                                 font-size: .9em; color: #888;}
+.nnf_result-meta                {display: block; font-size: .9em; color: #888;}
+/* cancel the right-floating that list items give to authors and times, and the mobile positioning */
+ol.ui li b.nnf_result-author    {position: static; bottom: auto; float: none; padding-left: 0; text-align: left;}
+ol.ui li time.nnf_result-time   {position: static; bottom: auto; float: none; width: auto; text-align: left;}
+.nnf_result-text                {padding: 5px 0 0; font-size: .95em; color: #888;}
+.nnf_result-text mark           {padding: 0 2px; color: #222; background: #ffe066;}
+
+
 /* markup / privacy page
    ====================================================================================================================== */
 #markup h1,                     /* title icon */

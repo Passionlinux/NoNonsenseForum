@@ -40,6 +40,22 @@ $LANG['']['title_append']       = 'Append to %1$s';
 //"%1$s" - the post title (will come from `THEME_RE` for replies)
 $LANG['']['title_delete']       = 'Delete %1$s?';
 
+//the HTML title of the search page
+$LANG['']['title_search']       = 'Search';
+
+//the search page's result summary:
+//"%1$u" - the number of matches
+//"%2$s" - what was searched for
+$LANG['']['search_results']     = '%1$u results for “%2$s”.';
+//(the singular, for exactly one match)
+$LANG['']['search_result']      = '%1$u result for “%2$s”.';
+//"%1$s" - what was searched for
+$LANG['']['search_none']        = 'No results for “%1$s”.';
+//shown before anything has been searched for
+$LANG['']['search_prompt']      = 'Search every discussion in this forum.';
+//shown when a very broad query hits the internal limit on matches
+$LANG['']['search_limited']     = 'Too many matches; only the first results are shown. Try a more specific query.';
+
 //reply number shown in threads as a permalink
 //"%1$u" - the number of the reply
 $LANG['']['replynum']           = '#%1$u.';
@@ -81,13 +97,7 @@ function theme_custom ($template) {
                 '//meta[@name="msapplication-navbutton-color"]/@content, //meta[@name="msapplication-TileColor"]/@content'
                                                                      => METRO_COLOUR, 
                 //set the site logo
-                'img#nnf_logo@src'                                   => FORUM_PATH.'themes/'.FORUM_THEME.'/img/'.THEME_LOGO,
-                
-                //set the forum URL for Google search-by-site (without any port)
-                '//input[@name="as_sitesearch"]/@value'              => preg_replace ('/:[0-9]+$/', '', FORUM_HOST),
-                //the Google search form is always HTTPS (a plain-HTTP search would send the query in clear);
-                //this also fixes themes/templates that still carry the old HTTP action
-                '//form[contains(@action,"google.com/search")]/@action' => 'https://www.google.com/search'
+                'img#nnf_logo@src'                                   => FORUM_PATH.'themes/'.FORUM_THEME.'/img/'.THEME_LOGO
         ));
 }
 
@@ -99,7 +109,14 @@ function theme_nameList ($names) {
 
 //produces a truncated list of page numbers around the current page:
 //(you might want to do something different, like a combo box with a button)
-function theme_pageList ($template, $file, $page, $pages) {
+//`$url` is an optional callback that builds the link for a given page number; by default it links to a thread's
+//pages, but the search page passes in its own builder
+function theme_pageList ($template, $file, $page, $pages, $url=NULL) {
+        //where should a page number link to?
+        $link = function ($page) use ($file, $url) {
+                return $url ? $url ($page) : url (PATH_URL, $file, $page);
+        };
+        
         //always include the first page
         $list[] = 1;
         //more than one page?
@@ -123,13 +140,13 @@ function theme_pageList ($template, $file, $page, $pages) {
         $node = $template->repeat ('.nnf_pages/li');
         //add a previous page link
         if ($pages > 1 && $page > 1) $node->set (array (
-                'a@href'        => url (PATH_URL, $file, $page-1),
+                'a@href'        => $link ($page-1),
                 'a'             => '«'
         ))->next ();
         //generate the list of pages,
         foreach ($list as &$item) {
                 //create the link
-                $node->setValue ('a@href', url (PATH_URL, $file, $item));
+                $node->setValue ('a@href', $link ($item));
                 switch (true) {
                         //determine if this is the current page, a regular page number, or the “…” gap
                         case $item == $page:    $node->setValue ('a/em', $item)->next ();       break;
@@ -139,7 +156,7 @@ function theme_pageList ($template, $file, $page, $pages) {
         }
         //add a next page link
         if ($page < $pages) $node->set (array (
-                'a@href'        => url (PATH_URL, $file, $page+1),
+                'a@href'        => $link ($page+1),
                 'a'             => '»'
         ))->next ();
 }
