@@ -135,6 +135,10 @@ if (!HTACCESS && FORUM_USERS == 'users') require FORUM_LIB.'error_htaccess.php';
 
 /* common input
    ---------------------------------------------------------------------------------------------------------------------- */
+//flatten any array request parameters (e.g. "?page[]=1") to blank strings so that they can't reach the string
+//functions below as an array and cause a fatal `TypeError` on PHP8 (see `flattenParams` in 'lib/functions.php')
+flattenParams ($_GET); flattenParams ($_POST); flattenParams ($_COOKIE);
+
 //most pages allow for a page number; note that this is merely the user-input, it is not necessarily a valid page number!
 define ('PAGE',     preg_match ('/^[1-9][0-9]*$/', @$_GET['page'] ?? '') ? (int) $_GET['page'] : false);
 //all our pages use 'path' (often optional) to specify the sub-forum being viewed, so this is done here

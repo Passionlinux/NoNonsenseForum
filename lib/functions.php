@@ -5,6 +5,13 @@
    you may do whatever you want to this code as long as you give credit to Kroc Camen, <camendesign.com>
 */
 
+//NoNonsense Forum never expects an array as a request parameter, but a request such as "?page[]=1" would hand one
+//straight to `preg_match` &c., which on PHP8 throws a fatal `TypeError` (on PHP5 it was only a warning).
+//this flattens any non-string parameter value down to a blank string so that malformed requests are simply ignored
+function flattenParams (array &$params) {
+        foreach ($params as $key => &$value) if (!is_string ($value)) $value = '';
+}
+
 //formulate a URL (used to automatically fallback to non-pretty URLs when htaccess is not available),
 //the domain is not included because it is not used universally throughout (absolute-base / relative links)
 function url (
@@ -149,7 +156,9 @@ function isAdmin ($name) {
 }
 //check to see if a name is a known moderator
 function isMod ($name) {
-        global $MODS;    return in_array (strtolower ($name), array_map ('strtolower', $MODS['GLOBAL'] + $MODS['LOCAL']));
+        //note: `array_merge` (not the `+` operator!) — `file` returns arrays with numeric keys, and `+` would drop
+        //any local mod whose list index collides with a global mod's, silently ignoring sub-forum moderators
+        global $MODS;    return in_array (strtolower ($name), array_map ('strtolower', array_merge ($MODS['GLOBAL'], $MODS['LOCAL'])));
 }
 //a member of a locked forum?
 function isMember ($name) {
