@@ -228,6 +228,36 @@ function prepareTemplate (
         return $template;
 }
 
+//the `ETag` for a rendered page: the CSP nonce changes on every response, so it is blanked out before hashing; the
+//same page then hashes the same even though its nonce differs. a 304 keeps the client's cached copy -- and the
+//`Content-Security-Policy` header stored with it -- so `output` must not send a fresh nonce along with a 304
+function pageETag ($html) {
+        return '"'.md5 (str_replace (CSP_NONCE, '', $html)).'"';
+}
+
+//send a finished page, with conditional-request support: 'start.php' makes the browser revalidate every time
+//(`Cache-Control: no-cache`), so a repeat visit can be answered with a bare `304 Not Modified` instead of the page
+function output ($template) {
+        $html = (string) $template;
+        $etag = pageETag ($html);
+        header ('ETag: '.$etag);
+        
+        //the browser returns the `ETag` it holds in `If-None-Match`: a comma-separated list, each optionally `W/` weak
+        if (@$_SERVER['REQUEST_METHOD'] === 'GET' && isset ($_SERVER['HTTP_IF_NONE_MATCH'])) {
+                $match = array_map (function ($tag) { return ltrim (trim ($tag), 'W/'); },
+                        explode (',', (string) $_SERVER['HTTP_IF_NONE_MATCH'])
+                );
+                if (in_array ('*', $match, true) || in_array ($etag, $match, true)) {
+                        //the cached page holds the nonce that came with it; sending a new CSP header would invalidate it
+                        header_remove ('Content-Security-Policy');
+                        http_response_code (304);
+                        exit;
+                }
+        }
+        
+        exit ($html);
+}
+
 /* ====================================================================================================================== */
 
 //the first mod on the list is the site administrator and has extra privileges such as stickying threads

@@ -34,4 +34,18 @@ class TemplateTest extends TestCase {
                 $template = prepareTemplate (THEME_ROOT.'index.html', '', 'test');
                 $this->assertCount (0, $template->query ('//form[@method="get"]/input[@name="csrf"]'));
         }
+        
+        /* conditional requests
+           -------------------------------------------------------------------------------------------------------------- */
+        //the nonce differs on every response but must not make the page look changed, or a 304 would never be possible
+        public function testPageEtagBlanksOutTheNonce () {
+                $this->assertSame (
+                        pageETag ('<script nonce="'.CSP_NONCE.'">x</script>'),
+                        pageETag ('<script nonce="">x</script>')
+                );
+        }
+        
+        public function testPageEtagChangesWithTheContent () {
+                $this->assertNotSame (pageETag ('<p>a</p>'), pageETag ('<p>b</p>'));
+        }
 }

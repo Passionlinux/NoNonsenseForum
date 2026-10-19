@@ -310,6 +310,6 @@ if (CAN_POST) $template->set (array (
 
 //call the theme-specific templating function, in 'theme.php', before outputting
 theme_custom ($template);
-exit ($template);
+output ($template);
 
 ?>
