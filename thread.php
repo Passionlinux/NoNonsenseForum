@@ -122,6 +122,9 @@ if ($ID = (preg_match ('/^[A-Z0-9]+$/i', @$_GET['append'] ?? '') ? $_GET['append
         
         //find the post using the ID (we need to know the numerical index for later)
         for ($i=0; $i<count ($xml->channel->item); $i++) if (strstr ($xml->channel->item[$i]->link, '#') == "#$ID") break;
+        //the URL is user-supplied, so the ID may not exist in this thread; bail out cleanly rather than let the
+        //`null` post below raise errors (PHP8 fatals on assigning to a property of `null`)
+        if ($i >= count ($xml->channel->item)) { flock ($f, LOCK_UN); fclose ($f); die ('Unknown post ID'); }
         $post = $xml->channel->item[$i];
         
         /* has the un/pw been submitted to authenticate the append?
@@ -252,6 +255,9 @@ if (isset ($_GET['delete'])) {
                 for ($i=0; $i<count ($xml->channel->item); $i++) if (
                         strstr ($xml->channel->item[$i]->link, '#') == "#$ID"
                 ) break;
+                //the URL is user-supplied, so the ID may not exist in this thread; bail out cleanly rather than
+                //let the `null` post below raise errors (PHP8 fatals on assigning to a property of `null`)
+                if ($i >= count ($xml->channel->item)) { flock ($f, LOCK_UN); fclose ($f); die ('Unknown post ID'); }
                 $post = $xml->channel->item[$i];
         }
         
