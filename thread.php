@@ -15,7 +15,7 @@ define ('TEXT', mb_substr ((string) @$_POST['text'], 0, SIZE_TEXT));
 //which thread to show
 //TODO: an error here should generate a 404, but we can't create a 404 in PHP that will send the server's provided 404 page.
 //      I may revist this if I create an NNF-provided 404 page
-$FILE   = (preg_match ('/^[_a-z0-9-]+$/', @$_GET['file'] ?? '') ? $_GET['file'] : '') or die ('Malformed request');
+$FILE   = (preg_match ('/^[_a-z0-9-]+$/', @$_GET['file'] ?? '') ? $_GET['file'] : '') or errorPage (400, 'Malformed request');
 
 //load the thread (have to read lock status from the file)
 //TODO: if file is missing, give 404, as above
@@ -124,7 +124,7 @@ if ($ID = (preg_match ('/^[A-Z0-9]+$/i', @$_GET['append'] ?? '') ? $_GET['append
         for ($i=0; $i<count ($xml->channel->item); $i++) if (strstr ($xml->channel->item[$i]->link, '#') == "#$ID") break;
         //the URL is user-supplied, so the ID may not exist in this thread; bail out cleanly rather than let the
         //`null` post below raise errors (PHP8 fatals on assigning to a property of `null`)
-        if ($i >= count ($xml->channel->item)) { flock ($f, LOCK_UN); fclose ($f); die ('Unknown post ID'); }
+        if ($i >= count ($xml->channel->item)) { flock ($f, LOCK_UN); fclose ($f); errorPage (404, 'Unknown post ID'); }
         $post = $xml->channel->item[$i];
         
         /* has the un/pw been submitted to authenticate the append?
@@ -257,7 +257,7 @@ if (isset ($_GET['delete'])) {
                 ) break;
                 //the URL is user-supplied, so the ID may not exist in this thread; bail out cleanly rather than
                 //let the `null` post below raise errors (PHP8 fatals on assigning to a property of `null`)
-                if ($i >= count ($xml->channel->item)) { flock ($f, LOCK_UN); fclose ($f); die ('Unknown post ID'); }
+                if ($i >= count ($xml->channel->item)) { flock ($f, LOCK_UN); fclose ($f); errorPage (404, 'Unknown post ID'); }
                 $post = $xml->channel->item[$i];
         }
         

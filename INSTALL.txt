@@ -18,6 +18,7 @@ Contents:
 [2.4]   Adding a forum introduction (about.html)
 [2.5]   Custom CSS
 [3]     Translations
+[4]     Development
 
 
 [0]     Requirements:
@@ -232,3 +233,24 @@ automatically for them.
 
 The user's choice of language is persisted with a cookie.
 A privacy policy is included to explain this.
+
+
+[4]     Development:
+========================================================================
+NoNonsense Forum runs without any third-party dependencies; Composer is
+only used for the development tools and is *not* needed on a production
+server (nothing in 'lib/' or the page scripts requires 'vendor/').
+
+*       Install the development dependencies (PHPUnit and PHPStan):
+
+        composer install
+
+*       Run the test-suite and the static analysis:
+
+        composer test
+        composer stan
+
+The tests live in the 'tests' folder and cover the shared functions in
+'lib/functions.php' and 'lib/utf8safe.php'. Both commands, plus a syntax
+check of every PHP file, are run automatically by GitHub Actions on each
+push and pull-request (see '.github/workflows/ci.yml').

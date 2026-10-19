@@ -1,3 +1,4 @@
+<?php http_response_code (500); //all of the error pages are server-side configuration / permission problems ?>
 <!DOCTYPE html>
 <title>Malformed XML</title>
 <h1>NoNonsense Forum</h2>

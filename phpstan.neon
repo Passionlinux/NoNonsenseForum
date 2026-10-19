@@ -1,0 +1,21 @@
+parameters:
+    level: 5
+    #these constants are set at runtime by 'start.php' from the request / configuration; telling the analyser that
+    #their values are not fixed stops it reporting conditions such as `if (PATH)` as always true / false
+    dynamicConstantNames:
+        - HTACCESS
+        - PATH
+        - PATH_URL
+        - AUTH_HTTP
+        - LANG
+        - THEME_LANGS
+    paths:
+        - lib/functions.php
+        - lib/utf8safe.php
+    #the theme and the bundled template engine are not analysed, but their symbols (the `DOMTemplate` class and the
+    #`theme_*` functions the shared code calls) must be discoverable
+    scanDirectories:
+        - lib/domtemplate
+        - themes
+    bootstrapFiles:
+        - tests/bootstrap.php

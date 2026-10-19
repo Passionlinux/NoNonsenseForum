@@ -1,3 +1,4 @@
+<?php http_response_code (500); //all of the error pages are server-side configuration / permission problems ?>
 <!DOCTYPE html>
 <title>Unable to Save; Permission Denied</title>
 <h1>NoNonsense Forum</h2>

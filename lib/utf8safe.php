@@ -56,8 +56,9 @@ function preprocess_superglobals () {
                 &$_SESSION,     
                 &$_ENV          //environment variables
         );
-        foreach ($all as &$_) if (!is_null ($_)) array_walk_recursive ($_, 'safeUTF8');
-        foreach ($all as &$_) if (!is_null ($_)) array_walk_recursive ($_, 'safeTrim');
+        //`array_walk_recursive` requires an array, and superglobals such as `$_SESSION` may not be set at all
+        foreach ($all as &$_) if (is_array ($_)) array_walk_recursive ($_, 'safeUTF8');
+        foreach ($all as &$_) if (is_array ($_)) array_walk_recursive ($_, 'safeTrim');
 }
 preprocess_superglobals ();
 

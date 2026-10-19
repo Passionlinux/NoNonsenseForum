@@ -22,6 +22,17 @@
 !themes/
 !users/
 
+# development & continuous integration
+# (`vendor/` is intentionally *not* listed: composer's dependencies are not part of the forum)
+!composer.json
+!composer.lock
+!phpstan.neon
+!phpunit.xml.dist
+!tests/
+!tests/**
+!.github/
+!.github/**
+
 # documentation
 !HISTORY.txt
 !INSTALL.txt

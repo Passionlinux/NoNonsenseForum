@@ -1,0 +1,32 @@
+{
+    "name": "passionlinux/nononsense-forum",
+    "description": "A simple forum that focuses on discussion and simplicity.",
+    "type": "project",
+    "license": "CC-BY-3.0",
+    "homepage": "https://github.com/Passionlinux/NoNonsenseForum",
+    "keywords": ["forum", "no-nonsense"],
+    "require": {
+        "php": ">=7.3",
+        "ext-dom": "*",
+        "ext-libxml": "*",
+        "ext-mbstring": "*",
+        "ext-simplexml": "*"
+    },
+    "require-dev": {
+        "phpstan/phpstan": "^1.12",
+        "phpunit/phpunit": "^9.6"
+    },
+    "autoload": {
+        "files": [
+            "lib/utf8safe.php",
+            "lib/functions.php"
+        ]
+    },
+    "scripts": {
+        "test": "phpunit",
+        "stan": "phpstan analyse --no-progress --memory-limit=1G"
+    },
+    "config": {
+        "sort-packages": true
+    }
+}

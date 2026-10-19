@@ -27,6 +27,51 @@ function isSameOrigin () {
                 || strcasecmp ($host, FORUM_HOST) === 0;
 }
 
+//stop with a proper HTTP error page. the page is deliberately self-contained -- it does not use the theme or any
+//translation -- so that it still works when the theme or the configuration is broken (which is often *why* it is
+//being shown in the first place)
+function errorPage ($code, $message='') {
+        //standard reason phrases, so that a caller only has to supply the status code (and optionally some detail)
+        static $status = array (
+                400 => 'Bad Request',
+                403 => 'Forbidden',
+                404 => 'Not Found',
+                405 => 'Method Not Allowed',
+                500 => 'Internal Server Error'
+        );
+        $reason = isset ($status[$code]) ? $status[$code] : 'Error';
+        //`FORUM_NAME` / `FORUM_PATH` are not yet defined if this is called from very early in 'start.php'
+        $title  = safeHTML ("$code $reason");
+        $name   = safeHTML (defined ('FORUM_NAME') ? FORUM_NAME : 'NoNonsense Forum');
+        $home   = safeAttr (defined ('FORUM_PATH') ? FORUM_PATH : '/');
+        //the caller's explanation, falling back on the generic reason phrase
+        $detail = safeHTML ($message !== '' ? $message : $reason);
+        
+        http_response_code ($code);
+        
+        exit (<<<HTML
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>$title &middot; $name</title>
+<style>
+body {margin:0 auto;padding:2em 1em;max-width:40em;background:#ddd;color:#222;font:16px/1.5 sans-serif}
+h1 {font-size:1.4em;border-bottom:2px solid #222;padding-bottom:.3em}
+a {color:#036}
+</style>
+</head>
+<body>
+<h1>$title</h1>
+<p>$detail</p>
+<p><a href="$home">Return to the forum</a></p>
+</body>
+</html>
+HTML
+        );
+}
+
 //formulate a URL (used to automatically fallback to non-pretty URLs when htaccess is not available),
 //the domain is not included because it is not used universally throughout (absolute-base / relative links)
 function url (
@@ -265,7 +310,7 @@ function formatText (
         /* hyperlinks:
            -------------------------------------------------------------------------------------------------------------- */
         //find full URLs and turn into HTML hyperlinks. we also detect e-mail addresses automatically
-        while (preg_match (
+        $offset = 0; while (preg_match (
                 '/(?:
                         ((?:(?:http|ftp)s?|irc)?:\/\/)                  # $1 = protocol
                 |       ([a-z0-9\._%+\-]+@)                             # $2 = email name
@@ -285,13 +330,12 @@ function formatText (
                 )/xiu',
                 //capture the starting point of the match, so that `$m[x][0]` is the text and $m[x][1] is the offset
                 $text, $m, PREG_OFFSET_CAPTURE,
-                //use an offset to search from so we don’t get stuck in an infinite loop
-                //(this isn’t valid the first time around obviously so gives 0)
-                @($m[0][1] + strlen ($replace))
+                //search from where the last replacement ended, so we don’t get stuck in an infinite loop
+                $offset
                 
         //replace the URL in the source text with a hyperlinked version:
         //(we record the HTML in `$replace` so that we can skip forward that much for the next search iteration)
-        )) $text = substr_replace ($text, $replace =
+        )) {    $text = substr_replace ($text, $replace =
                 '<a href="'.($p=(@$m[2][0] ? 'mailto:'.$m[2][0]                     //is this an e-mail address?
                                            : ($m[1][0] ? $m[1][0] : 'http://')))    //has a protocol been given?
                         //rest of the URL [domain . slash . everything-else]
@@ -305,6 +349,8 @@ function formatText (
                 //where to substitute
                 $m[0][1], strlen ($m[0][0])
         );
+        //continue searching after the hyperlink we just inserted
+        $offset = $m[0][1] + strlen ($replace); }
         
         /* inline formatting:
            -------------------------------------------------------------------------------------------------------------- */
@@ -397,13 +443,12 @@ function formatText (
         /* titles
            -------------------------------------------------------------------------------------------------------------- */
         //example: :: title
-        $replace = ''; $titles=array (); while (preg_match (
+        $offset = 0; $titles=array (); while (preg_match (
                 '/(?:\n|\A)(::.*)(?:\n?$|\Z)/mu',
                 //capture the starting point of the match, so that `$m[x][0]` is the text and $m[x][1] is the offset
                 $text, $m, PREG_OFFSET_CAPTURE,
-                //use an offset to search from so we don’t get stuck in an infinite loop
-                //(this isn’t valid the first time around obviously so gives 0)
-                @($m[0][1] + strlen ($replace))
+                //search from where the last replacement ended, so we don’t get stuck in an infinite loop
+                $offset
         )) {
                 //generate a unique HTML ID for the title:
                 //flatten the title text into a URL-safe string of [a-z0-9_]
@@ -425,17 +470,19 @@ function formatText (
                         //where to substitute
                         $m[0][1], strlen ($m[0][0])
                 );
+                //continue searching after the title we just inserted
+                $offset = $m[0][1] + strlen ($replace);
         }
         
         /* finalise:
            -------------------------------------------------------------------------------------------------------------- */
         //add paragraph tags between blank lines
-        foreach (preg_split ('/\n{2,}/', safeTrim ($text), -1, PREG_SPLIT_NO_EMPTY) as $chunk) {
+        $result = ''; foreach (preg_split ('/\n{2,}/', safeTrim ($text), -1, PREG_SPLIT_NO_EMPTY) as $chunk) {
                 //if not a blockquote, title, hr or pre-block, wrap in a paragraph
                 if (!preg_match ('/^<\/?(?:bl|h2|p)|^&PRE_/', $chunk))
                         $chunk = "<p>\n".str_replace ("\n", "<br />\n", $chunk)."\n</p>"
                 ;
-                $text = @$result .= "\n$chunk";
+                $text = $result .= "\n$chunk";
         }
         
         //restore code spans/blocks
@@ -513,7 +560,7 @@ function indexRSS () {
                 ))
                 //if you delete the last thread in a folder, there won’t be anything in the RSS index file!
                 if (@$rss->channel->item[0]) $sitemap->set (array (
-                        './x:loc'       => FORUM_URL.FORUM_PATH.($folder ? safeURL ("$folder/", false) : '').'index.xml',
+                        './x:loc'       => FORUM_URL.FORUM_PATH.($folder ? safeURL ("$folder/") : '').'index.xml',
                         './x:lastmod'   => gmdate ('r', strtotime ($rss->channel->item[0]->pubDate))
                 ))->next ()
         ;

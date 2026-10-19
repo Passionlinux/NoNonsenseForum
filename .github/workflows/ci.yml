@@ -1,0 +1,47 @@
+name: CI
+
+on:
+    push:
+        branches: [master]
+    pull_request:
+
+permissions:
+    contents: read
+
+concurrency:
+    group: ${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: true
+
+jobs:
+    test:
+        name: PHP ${{ matrix.php }}
+        runs-on: ubuntu-latest
+        strategy:
+            fail-fast: false
+            matrix:
+                # `7.3` is the minimum declared in composer.json; the rest are the versions people actually run
+                php: ['7.3', '8.1', '8.3']
+        steps:
+            -   uses: actions/checkout@v4
+
+            -   name: Set up PHP
+                uses: shivammathur/setup-php@v2
+                with:
+                    php-version: ${{ matrix.php }}
+                    extensions: dom, libxml, mbstring, simplexml, xmlwriter
+                    coverage: none
+
+            -   name: Validate composer.json
+                run: composer validate --strict
+
+            -   name: Install dependencies
+                run: composer install --no-interaction --no-progress --prefer-dist
+
+            -   name: Lint every PHP file
+                run: find . -path ./vendor -prune -o -name '*.php' -print0 | xargs -0 -n1 php -l
+
+            -   name: Run the test suite
+                run: composer test
+
+            -   name: Static analysis (PHPStan)
+                run: composer stan

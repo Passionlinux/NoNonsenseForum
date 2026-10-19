@@ -141,7 +141,7 @@ if (!defined ('FORUM_HOST')) {
         $host = @$_SERVER['HTTP_HOST'];
         //(hostname, or an IPv6 literal in brackets, with an optional port)
         if (!preg_match ('/^(?:[a-z0-9.\-]+|\[[0-9a-f:.]+\])(?::[0-9]+)?$/i', $host)) {
-                http_response_code (400); die ('Invalid Host header');
+                errorPage (400, 'Invalid Host header');
         }
         define ('FORUM_HOST', $host);
 }
@@ -177,17 +177,15 @@ define ('PATH_DIR', !PATH ? DIRECTORY_SEPARATOR : DIRECTORY_SEPARATOR.str_replac
 define ('SUBFORUM', @end (explode ('/', trim (PATH, '/'))));
 
 //deny access to some folders
-//TODO: this should generate a 403, but we don't have a 403 page designed yet
 //NOTE: the `PATH !== ''` guard is required on PHP8, where `stripos ($haystack, '')` returns `0` (PHP<8 returned false),
-//      which would `die` silently on every page in the root forum
-foreach (array ('users/', 'lib/', 'themes/', 'cgi-bin/') as $_) if (PATH !== '' && stripos ($_, PATH) === 0) die ();
+//      which would refuse access on every page in the root forum
+foreach (array ('users/', 'lib/', 'themes/', 'cgi-bin/') as $_) if (PATH !== '' && stripos ($_, PATH) === 0)
+        errorPage (403, 'Access to this folder is not allowed');
 
 //we have to change directory for `is_dir` to work, see <uk3.php.net/manual/en/function.is-dir.php#70005>
 //being in the right directory is also assumed for reading 'mods.txt' and when generating the RSS (`indexRSS`)
 //(oddly with `chdir` the path must end in a slash)
-@chdir (FORUM_ROOT.PATH_DIR) or die ('Invalid path');
-//TODO: that should generate a 404, but we can't create a 404 in PHP that will send the server's provided 404 page.
-//      I may revist this if I create an NNF-provided 404 page
+@chdir (FORUM_ROOT.PATH_DIR) or errorPage (404, 'Invalid path');
 
 //was an input form submitted? (used to determine form error checking; this doesn't apply to the sign-in button)
 define ('FORM_SUBMIT', (isset ($_POST['x'], $_POST['y']) || isset ($_POST['submit_x'], $_POST['submit_y'])));
@@ -197,8 +195,7 @@ define ('FORM_SUBMIT', (isset ($_POST['x'], $_POST['y']) || isset ($_POST['submi
 //(see `isSameOrigin`; requests that send neither header, such as non-browser clients, are left alone)
 if ((FORM_SUBMIT || isset ($_POST['signin']) || isset ($_POST['lang'])
         || isset ($_GET['append']) || isset ($_GET['delete'])) && !isSameOrigin ()) {
-        http_response_code (403);
-        die ('Cross-site request blocked');
+        errorPage (403, 'Cross-site request blocked');
 }
 
 
