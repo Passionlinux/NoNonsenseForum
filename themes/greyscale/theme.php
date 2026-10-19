@@ -83,11 +83,11 @@ function theme_custom ($template) {
                 //set the site logo
                 'img#nnf_logo@src'                                   => FORUM_PATH.'themes/'.FORUM_THEME.'/img/'.THEME_LOGO,
                 
-                //set the forum URL for Google search-by-site
-                '//input[@name="as_sitesearch"]/@value'              => $_SERVER['HTTP_HOST'],
-                //if you're using a Google search, change it to HTTPS if enforced
-                '//form[@action="http://google.com/search"]/@action' => FORUM_HTTPS ? 'https://encrypted.google.com/search'
-                                                                                    : 'http://google.com/search'
+                //set the forum URL for Google search-by-site (without any port)
+                '//input[@name="as_sitesearch"]/@value'              => preg_replace ('/:[0-9]+$/', '', FORUM_HOST),
+                //the Google search form is always HTTPS (a plain-HTTP search would send the query in clear);
+                //this also fixes themes/templates that still carry the old HTTP action
+                '//form[contains(@action,"google.com/search")]/@action' => 'https://www.google.com/search'
         ));
 }
 

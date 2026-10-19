@@ -1,10 +1,11 @@
 <!DOCTYPE html>
-<title>PHP 5.6 Required</title>
+<title>PHP 7.3 Required</title>
 <h1>NoNonsense Forum</h2>
-<h2>Error: PHP 5.6 Required</h2>
+<h2>Error: PHP 7.3 Required</h2>
 <p>
-	A minimum PHP version of 5.6 is required to run NoNonsense Forum
-	(secure password hashing needs `password_hash` and `hash_equals`).
+	A minimum PHP version of 7.3 is required to run NoNonsense Forum
+	(secure password hashing needs `password_hash` / `hash_equals`, security headers need
+	`random_bytes`, and the language cookie uses the `SameSite` attribute of `setcookie`).
 	Your server reports it has version <?php echo PHP_VERSION ?>.
 </p>
 <dl>

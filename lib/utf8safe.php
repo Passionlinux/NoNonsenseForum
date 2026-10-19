@@ -41,29 +41,11 @@ header ('Content-Type: text/html; charset=UTF-8');
    `$_COOKIES`, `$_REQUEST` / `$_GET` / `$_POST` &c.) through our UTF-8 sanitisation. you'll still need to be wary of the
    contents of your inputs (SQL/HTML injection, XSS &c.), and always safely combine strings (`safeURL`) and output safely
    (`safeHTML`), but this process helps against the less-obvious Unicode-based attacks */
-//callback used by `preprocess_superglobals` below to strip "magic quotes" slashes from a value
-//(a named function is used rather than a closure so that this library still parses on PHP5.2)
-function safeStripslashes (&$value, $key=NULL) {
-        if (is_string ($value)) $value = stripslashes ($value);
-}
-
 function preprocess_superglobals () {
-        /* "magic quotes" was a rather weak attempt at preventing injection attacks by automatically escaping the inputs
-           (`$_GET`, `$_POST` & `$_COOKIE`) with slashes (i.e. "won\'t"). this is however only relevant for SQL and not
-           HTML so introduces more complications in processing and outputting. this feature is removed entirely in PHP5.4.
-           if magic quotes is on, we strip the extra slashes from the inputs so as to normalise behaviour across different
-           servers and PHP versions */
-        //"magic quotes" was deprecated in PHP5.3, removed in PHP5.4, and even the `get_magic_quotes_gpc`
-        //function has been removed in PHP8, so we have to guard the call for compatibility
-        if (function_exists ('get_magic_quotes_gpc') && get_magic_quotes_gpc ()) {
-                //great care has to be taken to pass and process the superglobals by reference
-                $gpc = array (&$_GET, &$_POST, &$_COOKIE, &$_ENV);
-                //drill through the selected superglobals, applying `stripslashes`
-                //(`create_function` was removed in PHP8, so a named callback is used instead)
-                foreach ($gpc as &$_) array_walk_recursive ($_, 'safeStripslashes');
-        }
-        //magic quotes only applies to GET, POST, COOKIE & ENV, but we'll need to run the other sanitising functions
-        //on all the superglobals
+        //(the old "magic quotes" stripping has been removed: magic quotes were removed from PHP in 5.4, and this
+        // forum now requires PHP 7.3, so there is no longer any need to normalise their slashes)
+        
+        //run the sanitising functions on all the superglobals
         $all = array (
                 &$_SERVER,      //server environment, request headers, user agent string &c.
                 &$_REQUEST,     //combined $_GET & $_POST

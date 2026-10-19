@@ -22,8 +22,7 @@ Contents:
 
 [0]     Requirements:
 ========================================================================
-*       PHP 5.6 or above (the code is developed and tested against PHP 8.3;
-        secure password hashing requires 'password_hash' / 'hash_equals')
+*       PHP 7.3 or above (the code is developed and tested against PHP 8.3)
 *       Apache 2.1 or above, preferably with ".htaccess" files enabled
         (though optional), or any other webserver, whereby NNF will
         operate in "no-htaccess" mode

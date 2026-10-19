@@ -10,8 +10,9 @@
        DON’T DELETE OR MODIFY 'config.default.php'! --- */
 
 
-//uncomment this if you want to show PHP errors in the browser
-#error_reporting (-1);
+//set to true to display PHP errors in the browser (development only! a stack trace can expose server paths and
+//internals). errors are always written to the server's error log, whether this is on or off
+@define ('FORUM_DEBUG',         false);
 
 //path, relative to this file, where the private data should be stored. e.g. "../users" to go above webroot.
 //note that this is a server path, so use "/" on UNIX servers and "\" on Windows ones. don't provide an end slash.

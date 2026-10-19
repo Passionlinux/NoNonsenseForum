@@ -90,6 +90,10 @@ function prepareTemplate (
                 $node->nodeValue = FORUM_PATH.ltrim ($node->nodeValue, '/')
         ;
         
+        //attach the per-response Content-Security-Policy nonce to every `<script>` in the theme, so that the theme's
+        //own inline scripts are allowed without having to enable `'unsafe-inline'` (see 'start.php')
+        foreach ($template->query ('//script') as $node) $node->setAttribute ('nonce', CSP_NONCE);
+        
         /* translate!
            ---------------------------------------------------------------------------------------------------------------*/
         //before we start changing element content, we run through the language translation, if necessary;

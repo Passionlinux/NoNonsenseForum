@@ -85,8 +85,9 @@ define ('FORUM_ROOT',   dirname (__FILE__));
 define ('FORUM_LIB',    FORUM_ROOT.DIRECTORY_SEPARATOR.'lib'.DIRECTORY_SEPARATOR);
 
 //correct PHP version?
-//(`5.6` rather than `5.2.3`: password hashing uses `password_hash` (5.5+) and `hash_equals` (5.6+))
-if (version_compare (PHP_VERSION, '5.6') < 0) require FORUM_LIB.'error_phpver.php';
+//(`7.3`: `password_hash` / `hash_equals` for password hashing, `random_bytes` for the CSP nonce, and the
+// array-form `setcookie` used for the `SameSite` attribute on the language cookie)
+if (version_compare (PHP_VERSION, '7.3') < 0) require FORUM_LIB.'error_phpver.php';
 
 //if Apache is being used, check Apache version
 if (function_exists ('apache_get_version')) if (!preg_match (
@@ -118,6 +119,16 @@ define ('FORUM_PATH', safeURL (str_replace (
 //see that file for descriptions of the different available options
 @(include './config.default.php') or require FORUM_LIB.'error_configdefault.php';
 
+//don't show PHP errors to visitors: a warning or stack trace can reveal server paths and internals.
+//errors are still written to the server's log; `FORUM_DEBUG` in 'config.php' turns on browser display for development
+if (FORUM_DEBUG) {
+        error_reporting (-1);
+        @ini_set ('display_errors', '1');
+} else {
+        @ini_set ('display_errors', '0');
+}
+@ini_set ('log_errors', '1');
+
 //PHP 5.3 issues a warning if the timezone is not set when using date commands
 //(`FORUM_TIMEZONE` is set in the config and defaults to 'UTC')
 date_default_timezone_set (FORUM_TIMEZONE);
@@ -130,7 +141,7 @@ if (!defined ('FORUM_HOST')) {
         $host = @$_SERVER['HTTP_HOST'];
         //(hostname, or an IPv6 literal in brackets, with an optional port)
         if (!preg_match ('/^(?:[a-z0-9.\-]+|\[[0-9a-f:.]+\])(?::[0-9]+)?$/i', $host)) {
-                header ('HTTP/1.0 400 Bad Request'); die ('Invalid Host header');
+                http_response_code (400); die ('Invalid Host header');
         }
         define ('FORUM_HOST', $host);
 }
@@ -186,7 +197,7 @@ define ('FORM_SUBMIT', (isset ($_POST['x'], $_POST['y']) || isset ($_POST['submi
 //(see `isSameOrigin`; requests that send neither header, such as non-browser clients, are left alone)
 if ((FORM_SUBMIT || isset ($_POST['signin']) || isset ($_POST['lang'])
         || isset ($_GET['append']) || isset ($_GET['delete'])) && !isSameOrigin ()) {
-        header ('HTTP/1.0 403 Forbidden');
+        http_response_code (403);
         die ('Cross-site request blocked');
 }
 
@@ -296,33 +307,36 @@ foreach (explode (' ', THEME_LANGS) as $lang) @include THEME_ROOT."lang.$lang.ph
 
 //get / set the language to use
 //(note that the actual translation of the HTML is done in `prepareTemplate` in 'lib/functions.php')
-define ('LANG',
-        //if the language selector has been used to choose a language:
-        //(validate it against the languages the theme actually provides, before storing it in a cookie)
-        isset ($_POST['lang']) && array_key_exists ($_POST['lang'], $LANG) && setcookie (
-        //- set the language cookie for 1 year (`HttpOnly`: it isn't needed by JavaScript)
-        //- a cookie's domain is a hostname, not a host:port pair, so the port (if any) is stripped here
-        "lang", $_POST['lang'], time ()+60*60*24*365, FORUM_PATH,
-        preg_replace ('/:[0-9]+$/', '', FORUM_HOST), FORUM_HTTPS, true
-)       ? $_POST['lang']
-        //otherwise, does a cookie already exist to set the language?
-        : (     //validate that the language in the cookie actually exists!
-                array_key_exists (@$_COOKIE['lang'], $LANG)
-                ? @$_COOKIE['lang']
-                : (
-                        //otherwise, try detect the language sent by the browser:
-                        //(`?? ''`: the header may be absent; PHP8 deprecates passing `null` to `explode`)
-                        $lang = @array_shift (array_intersect (
-                                //- find language codes in the HTTP header and compare with the theme provided languages
-                                preg_replace ('/^([a-z0-9-]+).*/i', '$1', explode (',', $_SERVER['HTTP_ACCEPT_LANGUAGE'] ?? '')),
-                                explode (' ', THEME_LANGS)
-                        ))
-                        ? $lang
-                        //all else failing, use the default language
-                        : THEME_LANG
-                )
-        )
-);
+//if the language selector has been used to choose a language, validate it against the languages the theme actually
+//provides and store it in a cookie:
+if (isset ($_POST['lang']) && array_key_exists ($_POST['lang'], $LANG)) {
+        setcookie ('lang', $_POST['lang'], array (
+                //set the language cookie for 1 year; a cookie's domain is a hostname, not a host:port pair, so the
+                //port (if any) is stripped. `HttpOnly` as it isn't needed by JavaScript, and `SameSite` so it is not
+                //sent along with cross-site requests
+                'expires'  => time ()+60*60*24*365,
+                'path'     => FORUM_PATH,
+                'domain'   => preg_replace ('/:[0-9]+$/', '', FORUM_HOST),
+                'secure'   => FORUM_HTTPS,
+                'httponly' => true,
+                'samesite' => 'Lax'
+        ));
+        define ('LANG', $_POST['lang']);
+//otherwise, does a cookie already exist to set the language? (validate that it actually exists!)
+} else if (isset ($_COOKIE['lang']) && array_key_exists ($_COOKIE['lang'], $LANG)) {
+        define ('LANG', $_COOKIE['lang']);
+//otherwise, try detect the language sent by the browser:
+//(`?? ''`: the header may be absent; PHP8 deprecates passing `null` to `explode`)
+} else if ($lang = @array_shift (array_intersect (
+        //- find language codes in the HTTP header and compare with the theme provided languages
+        preg_replace ('/^([a-z0-9-]+).*/i', '$1', explode (',', $_SERVER['HTTP_ACCEPT_LANGUAGE'] ?? '')),
+        explode (' ', THEME_LANGS)
+))) {
+        define ('LANG', $lang);
+//all else failing, use the default language
+} else {
+        define ('LANG', THEME_LANG);
+}
 
 //for curtness, and straight-forward compatibility with older versions of NNF, we shorthand these translations;
 //the defaults (`LANG`='') are defined in 'theme.php' and overrided if the user selects a language ('lang.*.php') 
@@ -348,6 +362,23 @@ define ('LANG',
 header ('Cache-Control: no-cache', true);
 header ('Expires: 0', true);
 
+//security headers:
+//a fresh nonce per response lets the theme's own `<script>`s run (see `prepareTemplate` in 'lib/functions.php')
+//while blocking any script injected into the page; `style-src` leaves inline styles alone for custom themes
+define ('CSP_NONCE', bin2hex (random_bytes (16)));
+header (
+        "Content-Security-Policy: default-src 'self'; script-src 'self' 'nonce-".CSP_NONCE."'; ".
+        "style-src 'self' 'unsafe-inline'; img-src 'self' data:; object-src 'none'; base-uri 'self'; ".
+        "form-action 'self' https://www.google.com; frame-ancestors 'none'"
+);
+//don't let browsers guess content types, and don't allow the forum to be framed (clickjacking)
+header ('X-Content-Type-Options: nosniff');
+header ('X-Frame-Options: DENY');
+//don't leak the full URL of the forum to other sites (the CSRF check only needs the origin)
+header ('Referrer-Policy: strict-origin-when-cross-origin');
+//the forum has no use for these device APIs
+header ('Permissions-Policy: geolocation=(), camera=(), microphone=()');
+
 //if enabled, enforce HTTPS
 if (FORUM_HTTPS) if (@$_SERVER['HTTPS'] == 'on') {
         //if forced-HTTPS is on and a HTTPS connection is being used, send the 30-day HSTS header
@@ -363,7 +394,7 @@ if (FORUM_HTTPS) if (@$_SERVER['HTTPS'] == 'on') {
 //the browser will pop up a login box itself (no HTML involved) and continue to send the name & password with each request
 if (!AUTH_HTTP && isset ($_POST['signin'])) {
         header ('WWW-Authenticate: Basic');
-        header ('HTTP/1.0 401 Unauthorized');
+        http_response_code (401);
         //we don't die here so that if they cancel the login prompt, they shouldn't get a blank page
 }
 
